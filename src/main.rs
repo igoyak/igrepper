@@ -1,7 +1,7 @@
 extern crate clap;
 extern crate libc;
 
-use clap::{App, Arg};
+use clap::Command;
 use inotify::{Inotify, WatchMask};
 use libc::close;
 use libc::open;
@@ -16,50 +16,26 @@ const PARAMETER_ERROR: &str = "Data can only be passed by STDIN if no file param
 const DEFAULT_EDITOR_COMMAND: [&str; 3] = ["vim", "-R", "-"];
 
 fn main() {
-    let matches = App::new("igrepper")
+    let matches = Command::new("igrepper")
         .version("1.3.5")
         .about("The interactive grepper")
+        .arg(clap::arg!(-e --regex <REGEX> "Regular expression to preload"))
+        .arg(clap::arg!(-c --context <CONTEXT> "Print CONTEXT num of output context"))
+        .arg(clap::arg!(-w --word "Preload the regular expression '\\S+'").conflicts_with("regex"))
         .arg(
-            Arg::with_name("regex")
-                .short("e")
-                .long("regex")
-                .value_name("REGEX")
-                .help("Regular expression to preload")
-                .takes_value(true),
+            clap::arg!(-f --follow "Reload the file as it changes. Requires [file] to be set.")
+                .requires("FILE"),
         )
         .arg(
-            Arg::with_name("context")
-                .short("c")
-                .long("context")
-                .value_name("CONTEXT")
-                .help("Print CONTEXT num of output context")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("file")
-                .help("Sets the input file to use. If not set, reads from stdin.")
-                .index(1),
-        )
-        .arg(
-            Arg::with_name("word")
-                .short("w")
-                .long("word")
-                .conflicts_with("regex")
-                .help("Preload the regular expression '\\S+'"),
-        )
-        .arg(
-            Arg::with_name("follow")
-                .short("f")
-                .long("follow")
-                .requires("file")
-                .help("Reload the file as it changes. Requires [file] to be set."),
+            clap::arg!(<FILE> "Sets the input file to use. If not set, reads from stdin.")
+                .required(false),
         )
         .get_matches();
-    let file_option = matches.value_of("file");
+
     let is_tty = unsafe { libc::isatty(libc::STDIN_FILENO) } != 0;
     let mut file_path: Option<&str> = None;
     let source_producer: SourceProducer = if is_tty {
-        let path = file_option.unwrap_or_else(|| {
+        let path = matches.get_one::<String>("FILE").unwrap_or_else(|| {
             eprintln!("{}", PARAMETER_ERROR);
             std::process::exit(1);
         });
@@ -68,7 +44,7 @@ fn main() {
             input: SourceInput::FilePath(path.to_string()),
         }
     } else {
-        if file_option.is_some() {
+        if matches.get_one::<String>("FILE").is_some() {
             eprintln!("{}", PARAMETER_ERROR);
             std::process::exit(1);
         }
@@ -79,18 +55,18 @@ fn main() {
         }
     };
 
-    let context: u32 = match matches.value_of("context") {
+    let context: u32 = match matches.get_one::<String>("context") {
         None => 0,
         Some(context_string) => context_string.parse::<u32>().unwrap(),
     };
 
-    let initial_regex = if matches.is_present("word") {
+    let initial_regex = if matches.get_flag("word") {
         Some("\\S+")
     } else {
-        matches.value_of("regex")
+        matches.get_one::<String>("regex").map(|s| s.as_str())
     };
 
-    let inotify = if matches.is_present("follow") {
+    let inotify = if matches.get_flag("follow") {
         let inotify = Inotify::init()
             .expect("Failed to monitor file changes, error while initializing inotify instance");
 
