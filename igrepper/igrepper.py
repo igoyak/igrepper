@@ -9,6 +9,11 @@ import sys
 import argparse
 from typing import List
 
+from contextlib import contextmanager
+from pathlib import Path
+import logging
+
+
 BOLD = '\033[1m'
 INVERTED = '\033[7m'
 RESET = '\033[0m'
@@ -33,6 +38,36 @@ CTRL_V = 22
 CTRL_Y = 25
 CTRL_9 = 57
 CTRL_8 = 263
+MAC_BACKSPACE = 127
+
+debug = False
+
+class Logger:
+    log_file = '%s.log' % (Path().absolute() / Path(__file__).stem)
+    FORMAT = '%(levelname)-5s:%(asctime)-15s:%(module)s.%(funcName)-s() ~ %(message)s'
+    logging.basicConfig(filename=log_file, level=logging.INFO, format=FORMAT)
+    log = logging.getLogger(__name__)
+
+
+def log_with_debugging(func):
+    """Decorator to log when debug argument is passed"""
+    def inner(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except:
+            if debug:
+                Logger.log.exception('Arguments were: %r', args[1:])
+            else:
+                raise
+    return inner
+
+
+def warn_about(func, *exceptions):
+    def inner(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except exceptions as ex:
+            Logger.log.warning('with arguments: %r the exception %r was raised', args[1:], ex)
 
 
 class DisplayMode(Enum):
@@ -204,6 +239,7 @@ class IGrepper:
             char = self.win.getch()
             self.process_char(char)
 
+    @log_with_debugging
     def process_char(self, char: int):
         if char in (CTRL_H, curses.KEY_BACKSPACE):
             if len(self.regex) > 0:
@@ -370,8 +406,12 @@ def main():
     group.add_argument("-w", "--word", action="store_true", help="Preload the regular expression '\\S+'")
     parser.add_argument("-c", "--context", action="store", type=int, default=0,
                         help="Print CONTEXT num of output context")
+    parser.add_argument("-d", "--debug", action="store_true", default=False)
 
     args = parser.parse_args()
+
+    global debug
+    debug = args.debug
 
     if sys.stdin.isatty():
         if not args.file:
