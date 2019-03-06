@@ -309,9 +309,9 @@ class IGrepper:
             copy_to_clipboard(to_yank)
             self.quit = True
         elif char == CTRL_Y:
-            self.endwin()
             if not self.search.unique_matches:
                 return
+            self.endwin()
             to_yank = self.search.unique_matches[self.search.selected_match]
             if to_yank:
                 copy_to_clipboard(to_yank)
