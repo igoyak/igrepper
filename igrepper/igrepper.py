@@ -3,13 +3,12 @@
 import re
 import curses
 from enum import Enum
-from subprocess import Popen, PIPE
+from subprocess import run, Popen, PIPE
 import os
 import sys
 import argparse
 from typing import List
 
-from contextlib import contextmanager
 from pathlib import Path
 import logging
 
@@ -35,7 +34,7 @@ CTRL_R = 18
 CTRL_T = 20
 CTRL_U = 21
 CTRL_V = 22
-CTRL_Y = 25
+CTRL_Y = 25     # suspends on mac..
 CTRL_9 = 57
 CTRL_8 = 263
 MAC_BACKSPACE = 127
@@ -50,9 +49,15 @@ class Logger:
 
 
 def log_with_debugging(func):
-    """Decorator to log when debug argument is passed"""
+    """
+    Decorator to log exceptions when debug argument is passed in order to
+    catch keycodes etc.
+    """
     def inner(*args, **kwargs):
         try:
+            # TODO e.g. a -d2 argument to change this into debug
+            # logging is set to INFO by default
+            Logger.log.debug(args)
             return func(*args, **kwargs)
         except:
             if debug:
@@ -60,14 +65,6 @@ def log_with_debugging(func):
             else:
                 raise
     return inner
-
-
-def warn_about(func, *exceptions):
-    def inner(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except exceptions as ex:
-            Logger.log.warning('with arguments: %r the exception %r was raised', args[1:], ex)
 
 
 class DisplayMode(Enum):
@@ -78,8 +75,40 @@ class DisplayMode(Enum):
 
 
 def copy_to_clipboard(string):
-    p = Popen(['xsel', '-bi'], stdin=PIPE)
+    print('Copied to clipboard: \n\n' + BOLD + INVERTED + string + RESET + '\n')
+    p = Popen(clipboard_cmd(), stdin=PIPE)
     p.communicate(input=string.encode('utf-8'))
+
+
+def clipboard_cmd() -> list:
+    if sys.platform == 'darwin':
+        return ['pbcopy']
+    else:
+        return ['xsel', '-bi']
+
+
+def grep_cmd() -> list:
+    """
+    Compatibility helper for macOS which by default doesn't have a GNU flavoured
+    grep command and thus ```grep --perl-regexp``` is not a valid option
+    """
+    grep_cmd = ['grep']
+    if sys.platform == 'darwin':
+        which_ggrep_query = str(run(['which', 'ggrep'], stdout=PIPE).stdout)
+        if 'not found' in which_ggrep_query:
+            grep_version_query = str(run(['grep', '--version'], stdout=PIPE).stdout)
+            if 'BSD' in grep_version_query:
+                print('Your grep is of BSD flavour and doesn\'t support perl type regexp')
+                print('( ' + grep_version_query.splitlines()[0] + ' )')
+                print('Consider installing GNU grep: brew install grep')
+            else:
+                print('Unknown grep flavour.. trying \'grep\'')
+                print('( ' + grep_version_query.splitlines()[0] + ' )')
+        else:
+            grep_cmd = ['ggrep']
+
+    return grep_cmd
+
 
 
 class Match:
@@ -241,7 +270,10 @@ class IGrepper:
 
     @log_with_debugging
     def process_char(self, char: int):
-        if char in (CTRL_H, curses.KEY_BACKSPACE):
+        if char < 0:
+            # in tmux this is an option when the pane gets resized
+            return
+        elif char in (CTRL_H, curses.KEY_BACKSPACE, MAC_BACKSPACE):
             if len(self.regex) > 0:
                 self.regex = self.regex[:-1]
         elif char in (CTRL_L, curses.KEY_RESIZE):
@@ -264,32 +296,25 @@ class IGrepper:
         elif char == CTRL_K:
             self.search.prev_match()
         elif char == CTRL_G:
-            self.win.erase()
-            self.win.refresh()
-            curses.endwin()
+            self.endwin()
             grep_commands = []
             for m in self.search.previous_searches + [self.search]:
-                options = ''
+                options = '--perl-regexp '
                 if m.ignore_case:
-                    options += '-i '
+                    options += '--ignore-case '
                 if m.context > 0:
-                    options += '-C {} '.format(m.context)
-                grep_cmd = "grep {}'{}'".format(options, m.regex.replace("'", "\\'"))
-                grep_commands.append(grep_cmd)
+                    options += '--context {} '.format(m.context)
+            grep_commands.append("{} {}'{}' ".format(*grep_cmd(), options, m.regex.replace("'", "\\'")))
             to_yank = ' | '.join(grep_commands)
             copy_to_clipboard(to_yank)
-            print('Copied to clipboard: \n\n' + BOLD + INVERTED + to_yank + RESET + '\n')
             self.quit = True
         elif char == CTRL_Y:
+            self.endwin()
             if not self.search.unique_matches:
                 return
-            self.win.erase()
-            self.win.refresh()
-            curses.endwin()
             to_yank = self.search.unique_matches[self.search.selected_match]
             if to_yank:
                 copy_to_clipboard(to_yank)
-                print('Copied to clipboard: \n\n' + BOLD + INVERTED + to_yank + RESET + '\n')
                 self.quit = True
         elif char == CTRL_V:
             self.search.ignore_case = not self.search.ignore_case
@@ -318,6 +343,11 @@ class IGrepper:
 
         max_pager_ypos = max(0, len(self.search.output_lines) - self.get_number_of_pager_lines())
         self.pager_ypos = min(self.pager_ypos, max_pager_ypos)
+
+    def endwin(self):
+        self.win.erase()
+        self.win.refresh()
+        curses.endwin()
 
 
 def render(search: Search, window, pager_ypos: int, pager_xpos: int):
