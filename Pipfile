@@ -5,6 +5,7 @@ verify_ssl = true
 
 [dev-packages]
 better-exceptions = "*"
+pytest = "*"
 
 [packages]
 igrepper = {path = ".",editable = true}
