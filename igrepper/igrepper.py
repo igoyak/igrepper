@@ -20,6 +20,7 @@ AVAILABLE_COLORS = 6
 FOOTER_LINE_NO = 2
 WORD_REGEX = '\\S+'
 
+
 CTRL_D = 4
 CTRL_G = 7
 CTRL_H = 8
@@ -37,15 +38,11 @@ CTRL_V = 22
 CTRL_Y = 25     # suspends on mac..
 CTRL_9 = 57
 CTRL_8 = 263
+ESCESC = 27     # also Alt-Q
 MAC_BACKSPACE = 127
 
-debug = False
 
-class Logger:
-    log_file = '%s.log' % (Path().absolute() / Path(__file__).stem)
-    FORMAT = '%(levelname)-5s:%(asctime)-15s:%(module)s.%(funcName)-s() ~ %(message)s'
-    logging.basicConfig(filename=log_file, level=logging.INFO, format=FORMAT)
-    log = logging.getLogger(__name__)
+debug = False
 
 
 def log_with_debugging(func):
@@ -53,15 +50,24 @@ def log_with_debugging(func):
     Decorator to log exceptions when debug argument is passed in order to
     catch keycodes etc.
     """
+
+    log_file = '%s.log' % (Path().absolute() / Path(__file__).stem)
+    FORMAT = '%(levelname)-5s:%(asctime)-15s:%(module)s.%(funcName)-s() ~ %(message)s'
+    logging.basicConfig(filename=log_file, level=logging.DEBUG, format=FORMAT)
+    log = logging.getLogger(__name__)
+
     def inner(*args, **kwargs):
         try:
             # TODO e.g. a -d2 argument to change this into debug
             # logging is set to INFO by default
-            Logger.log.debug(args)
+            log.debug(args)
             return func(*args, **kwargs)
+        except SystemExit:
+            # Raise this explicitly so debug modure won't capture it
+            raise
         except:
             if debug:
-                Logger.log.exception('Arguments were: %r', args[1:])
+                log.exception('Arguments were: %r', args[1:])
             else:
                 raise
     return inner
@@ -72,6 +78,21 @@ class DisplayMode(Enum):
     show_all = 2
     show_only_match = 3
     show_only_unique = 4  # each unique on separate line
+
+    @staticmethod
+    def _modes_gen():
+        slice_to_toggle_through = 3
+        modes_to_loop = list(DisplayMode)[:slice_to_toggle_through:-1]
+        while True:
+            for c in modes_to_loop:
+                yield c
+
+    @classmethod
+    def next_from(cls, mode):
+        g = mode._modes_gen()
+        while mode != next(g):
+            pass
+        return next(g)
 
 
 def copy_to_clipboard(string):
@@ -186,12 +207,13 @@ class Search:
                 if self.context > 0:
                     first_context_line = True
                     for context_line_no in range(orig_line_number - self.context, orig_line_number + self.context + 1):
-                        if context_line_no < 0 or context_line_no >= len(self._input_lines):
+                        if context_line_no < 0 \
+                                or context_line_no >= len(self._input_lines) \
+                                or context_line_no in output_lines_dict: # Already exists
                             continue
-                        if context_line_no in output_lines_dict:
-                            # Already exists
-                            continue
-                        if first_context_line and len(output_lines_dict) > 1 and context_line_no > 1 \
+                        elif first_context_line \
+                                and len(output_lines_dict) > 1 \
+                                and context_line_no > 1 \
                                 and context_line_no - 2 not in output_lines_dict:
                             # create break
                             b = Line(context_line_no - 1, '', [], break_line=True)
@@ -242,15 +264,97 @@ class IGrepper:
         self.search = Search(self.input_lines, initial_context=initial_context)
         self.quit = False
 
-    def toggle_display_mode(self):
-        if self.display_mode == DisplayMode.show_default:
-            self.display_mode = DisplayMode.show_only_match
-        elif self.display_mode == DisplayMode.show_only_match:
-            self.display_mode = DisplayMode.show_all
-        elif self.display_mode == DisplayMode.show_all:
-            self.display_mode = DisplayMode.show_default
+        self._keymap = {
+            CTRL_H:                 self._backspace,
+            curses.KEY_BACKSPACE:   self._backspace,
+            MAC_BACKSPACE:          self._backspace,
+            CTRL_L:                 self._render,     # The curses window has been resized, so re-render it
+            curses.KEY_RESIZE:      self._render,     # The curses window has been resized, so re-render it
+            CTRL_V:                 self._toggle_casesens,
+            curses.KEY_DOWN:        self._down,
+            curses.KEY_UP:          self._up,
+            curses.KEY_NPAGE:       self._page_down,
+            curses.KEY_PPAGE:       self._page_up,
+            CTRL_D:                 self._half_page_down,
+            CTRL_U:                 self._half_page_up,
+            curses.KEY_LEFT:        self._left,
+            curses.KEY_RIGHT:       self._right,
+            CTRL_R:                 self._reduce_context,
+            CTRL_T:                 self._incr_context,
+            CTRL_J:                 self.search.next_match,
+            CTRL_K:                 self.search.prev_match,
+            CTRL_N:                 self._new_subsearch,
+            CTRL_P:                 self._undo_last_subsearch,
+            CTRL_O:                 self._toggle_display_mode,
+            CTRL_G:                 self._create_grep_cmd_and_quit,
+            CTRL_Y:                 self._yank_selected_and_quit,
+            ESCESC:                 exit,
+        }
 
-    def get_number_of_pager_lines(self):
+    def _toggle_casesens(self): self.search.ignore_case = not self.search.ignore_case
+    def _down(self):            self.pager_ypos += 1
+    def _up(self):              self.pager_ypos = max(0, self.pager_ypos - 1)
+    def _page_down(self):       self.pager_ypos = self.pager_ypos + self._get_number_of_pager_lines()
+    def _page_up(self):         self.pager_ypos = max(0, self.pager_ypos - self._get_number_of_pager_lines())
+    def _half_page_down(self): self.pager_ypos = self.pager_ypos + int(self._get_number_of_pager_lines() / 2)
+    def _half_page_up(self):   self.pager_ypos = max(0, self.pager_ypos - int(self._get_number_of_pager_lines() / 2))
+    def _left(self):            self.pager_xpos = max(0, self.pager_xpos - 1)
+    def _right(self):           self.pager_xpos += 1
+    def _reduce_context(self):  self.search.context = max(0, self.search.context - 1)
+    def _incr_context(self):    self.search.context += 1
+
+    def _backspace(self):
+        if len(self.regex) > 0:
+            self.regex = self.regex[:-1]
+
+    def _render(self):
+        pass
+
+    def _new_subsearch(self):
+        if self.search.valid:
+            previous_match_objects = self.search.previous_searches + [self.search]
+            self.search = Search([l.line_text for l in self.search.output_lines if not l.break_line])
+            self.search.previous_searches = previous_match_objects
+            self.search.context = previous_match_objects[-1].context
+            self.regex = ''
+
+    def _toggle_display_mode(self):
+        self.display_mode = DisplayMode.next_from(self.display_mode)
+
+    def _create_grep_cmd_and_quit(self):
+        self._endwin()
+        grep_commands = []
+        for m in self.search.previous_searches + [self.search]:
+            options = '--perl-regexp '
+            if m.ignore_case:
+                options += '--ignore-case '
+            if m.context > 0:
+                options += '--context {} '.format(m.context)
+        grep_commands.append("{} {}'{}' ".format(*grep_cmd(), options, m.regex.replace("'", "\\'")))
+        to_yank = ' | '.join(grep_commands)
+        copy_to_clipboard(to_yank)
+        self.quit = True
+
+    def _yank_selected_and_quit(self):
+        if not self.search.unique_matches:
+            return
+        self._endwin()
+        to_yank = self.search.unique_matches[self.search.selected_match]
+        if to_yank:
+            copy_to_clipboard(to_yank)
+            self.quit = True
+
+    def _undo_last_subsearch(self):
+        if self.search.previous_searches:
+            self.search = self.search.previous_searches.pop()
+            self.regex = self.search.regex
+
+    def _endwin(self):
+        self.win.erase()
+        self.win.refresh()
+        curses.endwin()
+
+    def _get_number_of_pager_lines(self):
         maxy, _ = self.win.getmaxyx()
         header_line_no = len(self.search.previous_searches) + 2
         pager_line_no = maxy - header_line_no - FOOTER_LINE_NO
@@ -273,81 +377,15 @@ class IGrepper:
         if char < 0:
             # in tmux this is an option when the pane gets resized
             return
-        elif char in (CTRL_H, curses.KEY_BACKSPACE, MAC_BACKSPACE):
-            if len(self.regex) > 0:
-                self.regex = self.regex[:-1]
-        elif char in (CTRL_L, curses.KEY_RESIZE):
-            pass  # The curses window has been resized, so re-render it
-        elif char == CTRL_N:
-            if self.search.valid:
-                previous_match_objects = self.search.previous_searches + [self.search]
-                self.search = Search([l.line_text for l in self.search.output_lines if not l.break_line])
-                self.search.previous_searches = previous_match_objects
-                self.search.context = previous_match_objects[-1].context
-                self.regex = ''
-        elif char == CTRL_P:
-            if self.search.previous_searches:
-                self.search = self.search.previous_searches.pop()
-                self.regex = self.search.regex
-        elif char == CTRL_O:
-            self.toggle_display_mode()
-        elif char == CTRL_J:
-            self.search.next_match()
-        elif char == CTRL_K:
-            self.search.prev_match()
-        elif char == CTRL_G:
-            self.endwin()
-            grep_commands = []
-            for m in self.search.previous_searches + [self.search]:
-                options = '--perl-regexp '
-                if m.ignore_case:
-                    options += '--ignore-case '
-                if m.context > 0:
-                    options += '--context {} '.format(m.context)
-            grep_commands.append("{} {}'{}' ".format(*grep_cmd(), options, m.regex.replace("'", "\\'")))
-            to_yank = ' | '.join(grep_commands)
-            copy_to_clipboard(to_yank)
-            self.quit = True
-        elif char == CTRL_Y:
-            if not self.search.unique_matches:
-                return
-            self.endwin()
-            to_yank = self.search.unique_matches[self.search.selected_match]
-            if to_yank:
-                copy_to_clipboard(to_yank)
-                self.quit = True
-        elif char == CTRL_V:
-            self.search.ignore_case = not self.search.ignore_case
-        elif char == curses.KEY_DOWN:
-            self.pager_ypos += 1
-        elif char == curses.KEY_NPAGE:
-            self.pager_ypos = self.pager_ypos + self.get_number_of_pager_lines()
-        elif char == CTRL_D:
-            self.pager_ypos = self.pager_ypos + int(self.get_number_of_pager_lines() / 2)
-        elif char == curses.KEY_UP:
-            self.pager_ypos = max(0, self.pager_ypos - 1)
-        elif char == curses.KEY_PPAGE:
-            self.pager_ypos = max(0, self.pager_ypos - self.get_number_of_pager_lines())
-        elif char == CTRL_U:
-            self.pager_ypos = max(0, self.pager_ypos - int(self.get_number_of_pager_lines() / 2))
-        elif char == curses.KEY_RIGHT:
-            self.pager_xpos += 1
-        elif char == curses.KEY_LEFT:
-            self.pager_xpos = max(0, self.pager_xpos - 1)
-        elif char == CTRL_R:
-            self.search.context = max(0, self.search.context - 1)
-        elif char == CTRL_T:
-            self.search.context += 1
+
+        if char in self._keymap:
+            func = self._keymap[char]
+            func()
         else:
             self.regex += chr(char)
 
-        max_pager_ypos = max(0, len(self.search.output_lines) - self.get_number_of_pager_lines())
+        max_pager_ypos = max(0, len(self.search.output_lines) - self._get_number_of_pager_lines())
         self.pager_ypos = min(self.pager_ypos, max_pager_ypos)
-
-    def endwin(self):
-        self.win.erase()
-        self.win.refresh()
-        curses.endwin()
 
 
 def render(search: Search, window, pager_ypos: int, pager_xpos: int):
@@ -427,7 +465,7 @@ def render(search: Search, window, pager_ypos: int, pager_xpos: int):
     window.addstr(status_line_ypos, 0, status_line)
 
 
-def main():
+def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("file", nargs='?')
     group = parser.add_mutually_exclusive_group()
@@ -438,7 +476,11 @@ def main():
                         help="Print CONTEXT num of output context")
     parser.add_argument("-d", "--debug", action="store_true", default=False)
 
-    args = parser.parse_args()
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
 
     global debug
     debug = args.debug
