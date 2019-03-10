@@ -31,6 +31,10 @@
 - Determine dependencies, python version
 - Test on macos
 
+# WISHLIST / IDEAS
 
+## Usability
+
+- Helper screen to show keyboard shortcuts
 
 
