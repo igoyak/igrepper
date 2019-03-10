@@ -82,7 +82,7 @@ class DisplayMode(Enum):
     @staticmethod
     def _modes_gen():
         slice_to_toggle_through = 3
-        modes_to_loop = list(DisplayMode)[:slice_to_toggle_through]
+        modes_to_loop = list(DisplayMode)[:slice_to_toggle_through:-1]
         while True:
             for c in modes_to_loop:
                 yield c
