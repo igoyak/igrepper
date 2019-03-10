@@ -11,7 +11,7 @@ or copy `./igrepper/igrepper.py` into your `PATH`.
 Recommended bash alias:
 
     alias i='igrepper'
-    iman() { man "$1" | igrepper -c 3}
+    iman () { igrepper -s -c 3 <( man "$@" | col -b ) }
 
 ## Usage
 
@@ -36,6 +36,7 @@ __Commands__:
     ctrl-r: Decrease context lines
     Up/Down/PageUp/PageDown: scroll
     ctrl-u/ctrl-d: half-page scroll
+    esc/alt-q: exit
     
 
     
