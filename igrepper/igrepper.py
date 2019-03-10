@@ -73,6 +73,21 @@ class DisplayMode(Enum):
     show_only_match = 3
     show_only_unique = 4  # each unique on separate line
 
+    @staticmethod
+    def _modes_gen():
+        slice_to_toggle_through = 3
+        modes_to_loop = list(DisplayMode)[:slice_to_toggle_through]
+        while True:
+            for c in modes_to_loop:
+                yield c
+
+    @classmethod
+    def next_from(cls, mode):
+        g = mode._modes_gen()
+        while mode != next(g):
+            pass
+        return next(g)
+
 
 def copy_to_clipboard(string):
     print('Copied to clipboard: \n\n' + BOLD + INVERTED + string + RESET + '\n')
@@ -186,12 +201,13 @@ class Search:
                 if self.context > 0:
                     first_context_line = True
                     for context_line_no in range(orig_line_number - self.context, orig_line_number + self.context + 1):
-                        if context_line_no < 0 or context_line_no >= len(self._input_lines):
+                        if context_line_no < 0 \
+                                or context_line_no >= len(self._input_lines) \
+                                or context_line_no in output_lines_dict: # Already exists
                             continue
-                        if context_line_no in output_lines_dict:
-                            # Already exists
-                            continue
-                        if first_context_line and len(output_lines_dict) > 1 and context_line_no > 1 \
+                        elif first_context_line \
+                                and len(output_lines_dict) > 1 \
+                                and context_line_no > 1 \
                                 and context_line_no - 2 not in output_lines_dict:
                             # create break
                             b = Line(context_line_no - 1, '', [], break_line=True)
@@ -243,12 +259,7 @@ class IGrepper:
         self.quit = False
 
     def toggle_display_mode(self):
-        if self.display_mode == DisplayMode.show_default:
-            self.display_mode = DisplayMode.show_only_match
-        elif self.display_mode == DisplayMode.show_only_match:
-            self.display_mode = DisplayMode.show_all
-        elif self.display_mode == DisplayMode.show_all:
-            self.display_mode = DisplayMode.show_default
+        self.display_mode = DisplayMode.next_from(self.display_mode)
 
     def get_number_of_pager_lines(self):
         maxy, _ = self.win.getmaxyx()
