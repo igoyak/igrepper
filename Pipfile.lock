@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "f6d98900d5265bbb7047abea83e385ce12998ca88244137e37e6170a86ef9cd4"
+            "sha256": "c89d031d4d89c8b655bd18c2da7bc1dd8ec94b8579efe0c4d2cf215da316447c"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -16,13 +16,13 @@
         ]
     },
     "default": {
-        "click": {
+        "better-exceptions": {
             "hashes": [
-                "sha256:2335065e6395b9e67ca716de5f7526736bfa6ceead690adf616d925bdc622b13",
-                "sha256:5b94b49521f6456670fdb30cd82a4eca9412788a93fa6dd6df72c94d5a8ff2d7"
+                "sha256:bf79c87659bc849989d726bf0e4a2100edefe7eded112d201f54fe08467fdf63",
+                "sha256:c196cad849de615abb9f6eb67ca1b83f33b938818f0e2fe8fa157b22aeb7b992"
             ],
             "index": "pypi",
-            "version": "==7.0"
+            "version": "==0.2.2"
         },
         "igrepper": {
             "editable": true,
@@ -43,14 +43,6 @@
                 "sha256:f0b870f674851ecbfbbbd364d6b5cbdff9dcedbc7f3f5e18a6891057f21fe399"
             ],
             "version": "==19.1.0"
-        },
-        "better-exceptions": {
-            "hashes": [
-                "sha256:bf79c87659bc849989d726bf0e4a2100edefe7eded112d201f54fe08467fdf63",
-                "sha256:c196cad849de615abb9f6eb67ca1b83f33b938818f0e2fe8fa157b22aeb7b992"
-            ],
-            "index": "pypi",
-            "version": "==0.2.2"
         },
         "more-itertools": {
             "hashes": [

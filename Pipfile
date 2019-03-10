@@ -4,12 +4,11 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [dev-packages]
-better-exceptions = "*"
 pytest = "*"
 
 [packages]
 igrepper = {path = ".",editable = true}
-click = "*"
+better-exceptions = "*"
 
 [requires]
 python_version = "3.6"
