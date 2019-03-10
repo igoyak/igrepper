@@ -3,6 +3,8 @@
 ## Bugs
 
 - input containing tabs is highlighted incorrectly and can overflow the curses window
+- subsearches don't export to the grep command
+- ctrl-y doesn't work on mac
 
 ## Performance
 

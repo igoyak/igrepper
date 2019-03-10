@@ -224,7 +224,8 @@ class Search:
 
         self.output_lines = [output_lines_dict[x] for x in sorted(output_lines_dict.keys())]
 
-        matches = [match for line in self.lines for match in line]
+        matches = [match for line in self.lines
+                         for match in line]
         nonempty_matches = [match for match in matches if match]
         self.unique_matches = []
         for match in nonempty_matches:
@@ -390,14 +391,14 @@ class IGrepper:
 
 def render(search: Search, window, pager_ypos: int, pager_xpos: int):
     more_lines_after = True
-    maxy, maxx = window.getmaxyx()
-    footer_div_ypos = maxy - 2
-    status_line_ypos = maxy - 1
+    maxY, maxX = window.getmaxyx()
+    footer_div_ypos = maxY - 2
+    status_line_ypos = maxY - 1
     header_line_no = len(search.previous_searches) + 2
-    pager_line_no = maxy - header_line_no - FOOTER_LINE_NO
-    if pager_line_no < 1 or maxx < 5:
+    pager_line_no = maxY - header_line_no - FOOTER_LINE_NO
+    if pager_line_no < 1 or maxX < 5:
         try:
-            window.addstr('window too small'[:maxx])
+            window.addstr('window too small'[:maxX])
         except:
             pass
         return
@@ -408,7 +409,7 @@ def render(search: Search, window, pager_ypos: int, pager_xpos: int):
     regex_color = curses.color_pair(0) if search.valid else curses.color_pair(30)
     window.addstr('{}\n'.format(search.regex), regex_color)
     header_char, header_color = ('^', curses.color_pair(31)) if pager_ypos > 0 else ('-', curses.color_pair(0))
-    window.addstr(header_char * maxx, header_color)
+    window.addstr(header_char * maxX, header_color)
 
     # trim output to visible by pager
     max_pager_ypos = max(0, len(search.output_lines) - pager_line_no)
@@ -419,9 +420,9 @@ def render(search: Search, window, pager_ypos: int, pager_xpos: int):
     # Fill break lines with text to display
     for l in output_lines:
         if l.break_line:
-            l.line_text = '-' * maxx
+            l.line_text = '-' * maxX
 
-    line_text_to_print = [line.line_text[pager_xpos:pager_xpos + maxx - 1] for line in output_lines]
+    line_text_to_print = [line.line_text[pager_xpos:pager_xpos + maxX - 1] for line in output_lines]
 
     # write output
     window.addstr('\n'.join(line_text_to_print))
@@ -430,30 +431,33 @@ def render(search: Search, window, pager_ypos: int, pager_xpos: int):
     for lineno, line_object in enumerate(output_lines):
         if line_object.break_line:
             color = curses.color_pair(32)
-            window.chgat(lineno + header_line_no, 0 - pager_xpos, maxx, color | curses.A_BOLD)
+            window.chgat(lineno + header_line_no, 0 - pager_xpos, maxX, color | curses.A_BOLD)
 
     # highlight matches
     for lineno, line_object in enumerate(output_lines):
         for match in line_object.line_matches:
             # Only highlight if inside pager view
+            @log_with_debugging
             def inside_pager(match_start, match_end, first_visible_x, last_visible_x):
                 if match_start < first_visible_x or match_start > last_visible_x:
                     return False
-                if match_end < first_visible_x or match_end > last_visible_x:
+                elif match_end < first_visible_x or match_end > last_visible_x:
                     return False
                 return True
 
-            if inside_pager(match.start, match.end, pager_xpos, pager_xpos + maxx - 1):
+            if inside_pager(match.start, match.end, pager_xpos, pager_xpos + maxX - 1):
                 if match.unique_id == search.selected_match:
                     color = curses.color_pair(31)
                 else:
                     color = curses.color_pair((match.unique_id % AVAILABLE_COLORS) + 1)
+
+                # This handles the highlighting coordinates (start, end) for every match object
                 window.chgat(lineno + header_line_no, match.start - pager_xpos, match.end - match.start,
                              color | curses.A_BOLD)
 
     # Footer
     footer_char, footer_color = ('v', curses.color_pair(31)) if more_lines_after else ('-', curses.color_pair(0))
-    window.addstr(footer_div_ypos, 0, footer_char * maxx, footer_color)
+    window.addstr(footer_div_ypos, 0, footer_char * maxX, footer_color)
     case_sensitivity_text = "[case insensitive], " if search.ignore_case else "[case sensitive],   "
     status_line = case_sensitivity_text + \
                   'context: {}, '.format(search.context) + \
@@ -461,8 +465,22 @@ def render(search: Search, window, pager_ypos: int, pager_xpos: int):
                   'matches: {}, '.format(search.match_count) + \
                   'unique: {},              '.format(search.unique_match_count) + \
                   'pag_y: {}, pag_x: {} '.format(pager_ypos, pager_xpos)
-    status_line = status_line[:maxx - 1]
+    status_line = status_line[:maxX - 1]
     window.addstr(status_line_ypos, 0, status_line)
+
+
+tabless = re.compile(r'(^[^\t])')
+def replace_tabs_with_spaces(s, tabstop=5):
+    """
+    Proceeds in chunks of the max length of 'tabstop' and min length of
+    1 (just tab character) iterating through the string and finally
+    deducting from the resulting length how many spaces should be
+    appended to the result to retain the tab length according to the
+    tabstop length/columns
+    """
+    return ''.join(m.group(0)
+                   .replace('\t', ' ' * (tabstop - len(tabless.findall(m.group(0)))))
+                   for m in re.finditer('([^\\t]{0,%d}\\t?)' % tabstop, s))
 
 
 def parse_args():
@@ -475,6 +493,8 @@ def parse_args():
     parser.add_argument("-c", "--context", action="store", type=int, default=0,
                         help="Print CONTEXT num of output context")
     parser.add_argument("-d", "--debug", action="store_true", default=False)
+    parser.add_argument("-s", "--with-spaces", action="store_true", default=False,
+                        help="Replace tabs with spaces. Works e.g. for man pages.")
 
     return parser.parse_args()
 
@@ -490,7 +510,10 @@ def main():
             print('Data can only be passed by STDIN if no file parameter is specified', file=sys.stderr)
             exit(1)
         with open(args.file) as f:
-            input_lines = f.read().split('\n')
+            if args.with_spaces:
+                input_lines = [replace_tabs_with_spaces(s) for s in f.read().splitlines()]
+            else:
+                input_lines = f.read().splitlines()
     else:
         if args.file:
             print('Data can only be passed by STDIN if no file parameter is specified', file=sys.stderr)
