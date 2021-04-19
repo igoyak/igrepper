@@ -1,3 +1,10 @@
+
+-----------
+NOTE: This python version is no longer maintained and only archived here
+for future reference. 
+-----------
+
+
 # igrepper - Interactive curses-based grepping tool
 
 ## Install
