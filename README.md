@@ -7,6 +7,16 @@ for other applications.
 
 ![](docs/basic_usage.gif)
 
+# Installation
+
+To install without setting up a rust environment, grab the `igrepper` binary from the
+latest release: https://github.com/igoyak/igrepper/releases  
+Then make it executable with `chmod` and put it in your `PATH`.
+
+__Dependencies__
+
+Ubuntu: `apt-get install xsel` for clipboard support
+
 # Usage
 
 Recommended `.bashrc` additions:
@@ -69,10 +79,6 @@ Tested on Ubuntu 20.04
 
 - No unicode support
 - Broken colors when using `screen`/`tmux` and `urxvt`. Workaround: `export TERM=rxvt-unicode-256color`
-
-## Dependencies
-
-Ubuntu: `apt-get install xsel` for clipboard support
 
 ## Dev dependencies
 
