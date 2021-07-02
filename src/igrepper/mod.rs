@@ -225,7 +225,7 @@ fn construct_grep_line(search_lines: &Vec<SearchLine>) -> String {
                 } else {
                     String::from("")
                 },
-                regex = l.line_with_sensitivity_prefix().replace("'", "\\'"),
+                regex = l.line_with_sensitivity_prefix().replace("'", "'\\''"),
                 inverted = if l.inverse { " -v" } else { "" }
             )
         })
@@ -394,6 +394,16 @@ mod tests {
         assert_eq!(
             construct_grep_line(&search_lines),
             "grep --perl-regexp \'(?i)foo\' | grep --context 1 --perl-regexp \'bar\'"
+        );
+    }
+
+    #[test]
+    fn construct_grep_with_single_quote() {
+        let search_lines: Vec<SearchLine> =
+            vec![SearchLine::new("isn't".to_string(), 0, false, false)];
+        assert_eq!(
+            construct_grep_line(&search_lines),
+            "grep --perl-regexp \'(?i)isn\'\\\'\'t\'"
         );
     }
 }
