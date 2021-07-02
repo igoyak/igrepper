@@ -145,7 +145,7 @@ pub fn igrepper(source: Vec<String>, initial_context: u32, initial_regex: Option
             }
             CTRL_G => {
                 if !state.regex_valid() {
-                    break;
+                    continue;
                 }
                 clear_screen();
                 endwin();
@@ -154,7 +154,7 @@ pub fn igrepper(source: Vec<String>, initial_context: u32, initial_regex: Option
             }
             CTRL_E => {
                 if !state.regex_valid() {
-                    break;
+                    continue;
                 }
                 clear_screen();
                 endwin();
@@ -163,7 +163,7 @@ pub fn igrepper(source: Vec<String>, initial_context: u32, initial_regex: Option
             }
             F1 | F1_2 => {
                 if !state.regex_valid() {
-                    break;
+                    continue;
                 }
                 clear_screen();
                 endwin();
