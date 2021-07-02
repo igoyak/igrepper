@@ -60,6 +60,7 @@ Searching:
 |    `ctrl-n`/`ctrl-j`/`Enter` | Accept current regex, start a sub-search |
 |    `ctrl-p` | Revert sub-search |
 |    `ctrl-i` | Toggle case sensitivity |
+|    `ctrl-v` | Toggle inverted |
 |    `ctrl-r`/`ctrl-t` | Decrease/Increase context-lines |
 
 Exporting:
@@ -68,7 +69,7 @@ Exporting:
 | ------------- | ------------- |
 |    `ctrl-e` | Copy current match to clipboard |
 |    `ctrl-g` | Copy equivalent `grep` command to clipboard |
-|    `ctrl-v`/`F1` | Pipe current match to `vim` |
+|    `F1`     | Pipe current match to `vim` |
 |    (Inside vim) `F1` | Pipe current buffer to `igrepper` (add `map <F1> :silent :w !igrepper<CR>:q!<CR>` to your `.vimrc`) |
 
 ## Supported platforms

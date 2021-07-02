@@ -1,5 +1,5 @@
 use crate::igrepper::output_generator::{Len, OutputGenerator};
-use crate::igrepper::state::State;
+use crate::igrepper::state::{SearchLine, State};
 use crate::igrepper::trimming::produce_render_state;
 use crate::igrepper::types::RenderState;
 use std::collections::HashMap;
@@ -12,8 +12,9 @@ struct CacheEntry {
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 struct CacheKey {
-    search_lines: u32,
+    search_lines: Vec<SearchLine>,
     context: u32,
+    inverted: bool,
     active_regex: String,
 }
 
@@ -24,8 +25,9 @@ pub struct Core {
 
 fn get_cache_key(state: &State) -> CacheKey {
     CacheKey {
-        search_lines: state.search_line_strings_with_case_sensitivity().len() as u32,
+        search_lines: state.search_lines(),
         context: state.current_context(),
+        inverted: state.inverted(),
         active_regex: state.last_valid_regex().to_string(),
     }
 }
@@ -63,7 +65,7 @@ impl Core {
             state.max_x(),
             state.pager_y(),
             state.pager_x(),
-            &state.search_line_strings_with_case_sensitivity(),
+            &state.search_lines(),
             state.current_context(),
             output_generator,
         );
@@ -110,7 +112,9 @@ impl Core {
             let output_generator = OutputGenerator::new(
                 source_lines.clone(),
                 state.last_valid_regex(),
+                state.last_search_line_empty(),
                 state.current_context(),
+                state.inverted(),
             );
             self.cache.insert(
                 get_cache_key(&state),
@@ -128,6 +132,7 @@ mod tests {
     use super::*;
     use crate::igrepper::state::SearchLine;
     use std::collections::HashSet;
+
     use std::fs::File;
     use std::io::{Read, Write};
     use std::{fs, io};
@@ -143,7 +148,7 @@ mod tests {
         let mut core = Core::new();
         let state = State::new(
             &source_lines,
-            vec![SearchLine::new(String::from(""), 0, true)],
+            vec![SearchLine::new(String::from(""), 0, true, false)],
             0,
             0,
             10,
@@ -151,7 +156,7 @@ mod tests {
         );
         let output = core.get_render_state(&state);
         let serialized = format!("{:?}", output);
-        assert_eq!(serialized, "RenderState { regex_valid: true, max_y: 10, max_x: 10, input_window_height: 3, pager_window_height: 6, output_search_lines: [\"\"], output_display_lines: [StringWithColorIndex([String(\"b\"), String(\"l\"), String(\"a\"), String(\"h\")])], status_line: \"matchedLin\" }");
+        assert_eq!(serialized, "RenderState { regex_valid: true, max_y: 10, max_x: 10, input_window_height: 3, pager_window_height: 6, output_search_lines: [SearchLine { line: \"\", context: 0, case_sensitive: true, inverse: false }], output_display_lines: [StringWithColorIndex([String(\"b\"), String(\"l\"), String(\"a\"), String(\"h\")])], status_line: \"matchedLin\" }");
     }
 
     #[test]
@@ -165,7 +170,7 @@ mod tests {
         let mut core = Core::new();
         let state = State::new(
             &source_lines,
-            vec![SearchLine::new(String::from("1"), 1, true)],
+            vec![SearchLine::new(String::from("1"), 1, true, false)],
             0,
             0,
             10,
@@ -173,7 +178,7 @@ mod tests {
         );
         let output = core.get_render_state(&state);
         let serialized = format!("{:?}", output);
-        assert_eq!(serialized, "RenderState { regex_valid: true, max_y: 10, max_x: 10, input_window_height: 3, pager_window_height: 6, output_search_lines: [\"1\"], output_display_lines: [StringWithColorIndex([MatchString((\"1\", 0))]), StringWithColorIndex([String(\"2\")])], status_line: \"matchedLin\" }");
+        assert_eq!(serialized, "RenderState { regex_valid: true, max_y: 10, max_x: 10, input_window_height: 3, pager_window_height: 6, output_search_lines: [SearchLine { line: \"1\", context: 1, case_sensitive: true, inverse: false }], output_display_lines: [StringWithColorIndex([MatchString((\"1\", 0))]), StringWithColorIndex([String(\"2\")])], status_line: \"matchedLin\" }");
     }
 
     #[test]
@@ -187,8 +192,8 @@ mod tests {
         let state = State::new(
             &source_lines,
             vec![
-                SearchLine::new(String::from("a"), 0, false),
-                SearchLine::new(String::from("b"), 0, true),
+                SearchLine::new(String::from("a"), 0, false, false),
+                SearchLine::new(String::from("b"), 0, true, false),
             ],
             0,
             0,
@@ -197,7 +202,32 @@ mod tests {
         );
         let output = Core::new().get_render_state(&state);
         let serialized = format!("{:?}", output);
-        assert_eq!(serialized, "RenderState { regex_valid: true, max_y: 10, max_x: 10, input_window_height: 4, pager_window_height: 5, output_search_lines: [\"(?i)a\", \"b\"], output_display_lines: [StringWithColorIndex([String(\"a\"), MatchString((\"b\", 0))]), StringWithColorIndex([String(\"A\"), MatchString((\"b\", 0))])], status_line: \"matchedLin\" }");
+        assert_eq!(serialized, "RenderState { regex_valid: true, max_y: 10, max_x: 10, input_window_height: 4, pager_window_height: 5, output_search_lines: [SearchLine { line: \"(?i)a\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"b\", context: 0, case_sensitive: true, inverse: false }], output_display_lines: [StringWithColorIndex([String(\"a\"), MatchString((\"b\", 0))]), StringWithColorIndex([String(\"A\"), MatchString((\"b\", 0))])], status_line: \"matchedLin\" }");
+    }
+
+    #[test]
+    fn test_inverse_searching() {
+        let source_lines = vec![
+            String::from("ab"),
+            String::from("Ab"),
+            String::from("aB"),
+            String::from("BB"),
+            String::from("c"),
+        ];
+        let state = State::new(
+            &source_lines,
+            vec![
+                SearchLine::new(String::from("a"), 0, false, true),
+                SearchLine::new(String::from("b"), 0, true, true),
+            ],
+            0,
+            0,
+            10,
+            10,
+        );
+        let output = Core::new().get_render_state(&state);
+        let serialized = format!("{:?}", output);
+        assert_eq!(serialized, "RenderState { regex_valid: true, max_y: 10, max_x: 10, input_window_height: 4, pager_window_height: 5, output_search_lines: [SearchLine { line: \"(?i)a\", context: 0, case_sensitive: false, inverse: true }, SearchLine { line: \"b\", context: 0, case_sensitive: true, inverse: true }], output_display_lines: [StringWithColorIndex([String(\"BB\")]), StringWithColorIndex([String(\"c\")])], status_line: \"matchedLin\" }");
     }
 
     #[test]
@@ -246,7 +276,7 @@ mod tests {
                 search_lines_list.iter().for_each(|search_lines| {
                     let search_lines_with_context: Vec<SearchLine> = search_lines
                         .iter()
-                        .map(|l| SearchLine::new(l.clone(), 0, case_sensitive.clone()))
+                        .map(|l| SearchLine::new(l.clone(), 0, case_sensitive.clone(), false))
                         .collect();
                     let state = State::new(
                         &source_lines,

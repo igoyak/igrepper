@@ -1,5 +1,6 @@
 use crate::igrepper::constants::*;
 use crate::igrepper::output_generator::{Len, OutputGenerator};
+use crate::igrepper::state::SearchLine;
 use crate::igrepper::types::{
     Line, LineWithMatches, RenderState, StringWithColorIndex, StringWithColorIndexOrBreakLine,
 };
@@ -28,7 +29,7 @@ pub fn produce_render_state(
     max_x: u32,
     pager_y: u32,
     pager_x: u32,
-    search_lines: &Vec<String>,
+    search_lines: &Vec<SearchLine>,
     context: u32,
     result_generator: &mut OutputGenerator,
 ) -> RenderState {
@@ -291,18 +292,24 @@ fn input_window_height(max_y: u32, search_lines: u32) -> u32 {
 /// Trim search lines by width and height
 fn search_lines_display_format(
     input_window_height: u32,
-    search_lines: &Vec<String>,
+    search_lines: &Vec<SearchLine>,
     content_width: u32,
-) -> Vec<String> {
+) -> Vec<SearchLine> {
     let lines_to_take = cmp::min(
         input_window_height.saturating_sub(2) as usize,
         search_lines.len(),
     );
-    let mut output_search_lines: Vec<String> = vec![];
+    let mut output_search_lines: Vec<SearchLine> = vec![];
     for search_line in search_lines.iter().rev().take(lines_to_take).rev() {
-        let last_column_no = cmp::min(search_line.len(), content_width as usize);
-        let output_line = &search_line[0..last_column_no];
-        output_search_lines.push(String::from(output_line));
+        let line = search_line.line_with_sensitivity_prefix();
+        let last_column_no = cmp::min(line.len(), content_width as usize);
+        let output_line = &line[0..last_column_no];
+        output_search_lines.push(SearchLine::new(
+            String::from(output_line),
+            search_line.context,
+            search_line.case_sensitive,
+            search_line.inverse,
+        ));
     }
     output_search_lines
 }

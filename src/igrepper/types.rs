@@ -1,3 +1,5 @@
+use crate::igrepper::state::SearchLine;
+
 #[derive(Debug, Clone)]
 pub struct RenderState {
     pub regex_valid: bool,
@@ -5,7 +7,7 @@ pub struct RenderState {
     pub max_x: u32,
     pub input_window_height: u32,
     pub pager_window_height: u32,
-    pub output_search_lines: Vec<String>,
+    pub output_search_lines: Vec<SearchLine>,
     pub output_display_lines: Vec<StringWithColorIndexOrBreakLine>,
     pub status_line: String,
 }

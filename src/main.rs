@@ -15,7 +15,7 @@ const PARAMETER_ERROR: &str = "Data can only be passed by STDIN if no file param
 
 fn main() {
     let matches = App::new("igrepper")
-        .version("1.0")
+        .version("1.1.0")
         .about("The interactive grepper")
         .arg(
             Arg::with_name("regex")

@@ -62,6 +62,7 @@ pub fn igrepper(source: Vec<String>, initial_context: u32, initial_regex: Option
             String::from(initial_regex.unwrap_or("")),
             initial_context,
             false,
+            false,
         )],
         0,
         0,
@@ -139,6 +140,9 @@ pub fn igrepper(source: Vec<String>, initial_context: u32, initial_regex: Option
             CTRL_I => {
                 state = state.toggle_case_sensitivity();
             }
+            CTRL_V => {
+                state = state.toggle_inverted();
+            }
             CTRL_G => {
                 if !state.regex_valid() {
                     break;
@@ -157,7 +161,7 @@ pub fn igrepper(source: Vec<String>, initial_context: u32, initial_regex: Option
                 copy_full_to_clipboard_from_string(&core.get_full_output_string(&state));
                 break;
             }
-            CTRL_V | F1 | F1_2 => {
+            F1 | F1_2 => {
                 if !state.regex_valid() {
                     break;
                 }
@@ -203,25 +207,30 @@ fn page_y<'a>(amount: i32, s: State<'a>, c: &mut Core) -> State<'a> {
 }
 
 fn copy_grep_to_clipboard(search_lines: &Vec<SearchLine>) -> () {
-    let grep_commands = search_lines
+    let grep_line = construct_grep_line(search_lines);
+    copy_to_clipboard(&grep_line);
+    print_copied_to_clipboard(grep_line);
+}
+
+fn construct_grep_line(search_lines: &Vec<SearchLine>) -> String {
+    search_lines
         .iter()
         .filter(|l| !l.line.is_empty())
         .map(|l| {
             format!(
-                "{grep} --perl-regexp '{regex}'{context}",
+                "{grep}{context}{inverted} --perl-regexp '{regex}'",
                 grep = grep_path(),
-                context = if l.context > 0 {
+                context = if l.context > 0 && !l.inverse {
                     format!(" --context {}", l.context)
                 } else {
                     String::from("")
                 },
-                regex = l.line.replace("'", "\\'")
+                regex = l.line_with_sensitivity_prefix().replace("'", "\\'"),
+                inverted = if l.inverse { " -v" } else { "" }
             )
         })
-        .collect::<Vec<String>>();
-    let grep_line = grep_commands.join(" | ");
-    copy_to_clipboard(&grep_line);
-    print_copied_to_clipboard(grep_line);
+        .collect::<Vec<String>>()
+        .join(" | ")
 }
 
 fn grep_path() -> String {
@@ -310,4 +319,81 @@ fn print_copied_to_clipboard(string: String) {
         ),
         string
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn construct_grep_one_line() {
+        let search_lines: Vec<SearchLine> =
+            vec![SearchLine::new("foo".to_string(), 0, false, false)];
+        assert_eq!(
+            construct_grep_line(&search_lines),
+            "grep --perl-regexp \'(?i)foo\'"
+        );
+    }
+
+    #[test]
+    fn construct_grep_case_sensitive() {
+        let search_lines: Vec<SearchLine> =
+            vec![SearchLine::new("foo".to_string(), 0, true, false)];
+        assert_eq!(
+            construct_grep_line(&search_lines),
+            "grep --perl-regexp \'foo\'"
+        );
+    }
+
+    #[test]
+    fn construct_grep_inverted() {
+        let search_lines: Vec<SearchLine> =
+            vec![SearchLine::new("foo".to_string(), 0, false, true)];
+        assert_eq!(
+            construct_grep_line(&search_lines),
+            "grep -v --perl-regexp \'(?i)foo\'"
+        );
+    }
+
+    #[test]
+    fn construct_grep_sensitive_and_inverted() {
+        let search_lines: Vec<SearchLine> = vec![SearchLine::new("foo".to_string(), 0, true, true)];
+        assert_eq!(
+            construct_grep_line(&search_lines),
+            "grep -v --perl-regexp \'foo\'"
+        );
+    }
+
+    #[test]
+    fn construct_grep_context() {
+        let search_lines: Vec<SearchLine> =
+            vec![SearchLine::new("foo".to_string(), 2, false, false)];
+        assert_eq!(
+            construct_grep_line(&search_lines),
+            "grep --context 2 --perl-regexp \'(?i)foo\'"
+        );
+    }
+
+    #[test]
+    fn construct_grep_context_is_ignored_when_inverted() {
+        let search_lines: Vec<SearchLine> =
+            vec![SearchLine::new("foo".to_string(), 2, false, true)];
+        assert_eq!(
+            construct_grep_line(&search_lines),
+            "grep -v --perl-regexp \'(?i)foo\'"
+        );
+    }
+
+    #[test]
+    fn construct_grep_multiple_lines() {
+        let search_lines: Vec<SearchLine> = vec![
+            SearchLine::new("foo".to_string(), 0, false, false),
+            SearchLine::new("bar".to_string(), 1, true, false),
+        ];
+        assert_eq!(
+            construct_grep_line(&search_lines),
+            "grep --perl-regexp \'(?i)foo\' | grep --context 1 --perl-regexp \'bar\'"
+        );
+    }
 }

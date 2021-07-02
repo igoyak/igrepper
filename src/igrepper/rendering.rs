@@ -4,7 +4,7 @@ use crate::igrepper::constants::*;
 use crate::igrepper::types::{RenderState, StringWithColorIndex, StringWithColorIndexOrBreakLine};
 use ncurses::{
     box_, chtype, getmaxyx, mvaddstr, mvwaddstr, mvwhline, newwin, stdscr, wattroff, wattron,
-    wbkgd, wrefresh, A_BOLD, COLOR_PAIR,
+    wbkgd, wrefresh, A_BOLD, A_REVERSE, COLOR_PAIR,
 };
 
 pub fn clear_screen() {
@@ -43,13 +43,20 @@ pub fn render(render_state: RenderState) {
     wattroff(input_window, COLOR_PAIR(COLOR_PAIR_BORDER));
 
     for (i, search_line) in render_state.output_search_lines.iter().enumerate() {
-        let mut line: &str = search_line;
+        let mut line: &str = search_line.line.as_str();
         let mut x_start = 1i32;
+        if search_line.inverse {
+            wattron(input_window, COLOR_PAIR(COLOR_PAIR_BORDER));
+            mvwaddstr(input_window, i as i32 + 1, x_start, "!");
+            wattroff(input_window, COLOR_PAIR(COLOR_PAIR_BORDER));
+            x_start += 1;
+        }
+
         if line.starts_with(CASE_INSENSITIVE_PREFIX) {
             wattron(input_window, COLOR_PAIR(COLOR_PAIR_BORDER));
             mvwaddstr(input_window, i as i32 + 1, x_start, CASE_INSENSITIVE_PREFIX);
             wattroff(input_window, COLOR_PAIR(COLOR_PAIR_BORDER));
-            x_start = CASE_INSENSITIVE_PREFIX.len() as i32 + 1;
+            x_start += CASE_INSENSITIVE_PREFIX.len() as i32;
             line = &line[4..line.len()];
         }
         if i == render_state.output_search_lines.len() - 1 {
@@ -61,6 +68,10 @@ pub fn render(render_state: RenderState) {
         } else {
             wattron(input_window, COLOR_PAIR(COLOR_PAIR_INACTIVE_INPUT));
         }
+        if search_line.inverse {
+            wattron(input_window, A_REVERSE());
+        }
+
         mvwaddstr(input_window, i as i32 + 1, x_start, line);
         if i == render_state.output_search_lines.len() - 1 {
             if render_state.regex_valid {
@@ -70,6 +81,9 @@ pub fn render(render_state: RenderState) {
             }
         } else {
             wattroff(input_window, COLOR_PAIR(COLOR_PAIR_INACTIVE_INPUT));
+        }
+        if search_line.inverse {
+            wattroff(input_window, A_REVERSE());
         }
     }
     wrefresh(input_window);
