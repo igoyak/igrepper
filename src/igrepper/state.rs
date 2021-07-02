@@ -348,6 +348,10 @@ impl<'a> State<'a> {
             self.max_x,
         )
     }
+
+    pub fn empty_search_lines(&self) -> bool {
+        self.search_lines.len() == 1 && self.search_lines[0].line.is_empty()
+    }
 }
 
 #[cfg(test)]
@@ -495,5 +499,22 @@ mod tests {
         assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"d\", context: 0, case_sensitive: false, inverse: false }], last_valid_regex: (?i)d, pager_x: 1, pager_y: 0, max_y: 10, max_x: 10 }");
         let state = state.toggle_inverted();
         assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"d\", context: 0, case_sensitive: false, inverse: true }], last_valid_regex: (?i)d, pager_x: 1, pager_y: 0, max_y: 10, max_x: 10 }");
+    }
+
+    #[test]
+    fn empty_search_lines() {
+        let longest_line_length = 15;
+        let source_lines = get_source_lines();
+        let state = State::new(
+            &source_lines,
+            vec![SearchLine::new(String::from("a"), 0, false, false)],
+            0,
+            0,
+            10,
+            10,
+        );
+        assert!(!state.empty_search_lines());
+        let state = state.pop_search_char();
+        assert!(state.empty_search_lines());
     }
 }

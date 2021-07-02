@@ -144,7 +144,7 @@ pub fn igrepper(source: Vec<String>, initial_context: u32, initial_regex: Option
                 state = state.toggle_inverted();
             }
             CTRL_G => {
-                if !state.regex_valid() {
+                if !state.regex_valid() || state.empty_search_lines() {
                     continue;
                 }
                 clear_screen();
