@@ -3,10 +3,11 @@ use ncurses::{
     start_color, stdscr, CURSOR_VISIBILITY, KEY_BACKSPACE, KEY_DOWN, KEY_ENTER, KEY_LEFT,
     KEY_NPAGE, KEY_PPAGE, KEY_RESIZE, KEY_RIGHT, KEY_UP,
 };
-use std::char;
 use std::cmp;
 use std::io::Write;
 use std::process::{Command, Stdio};
+use std::sync::mpsc;
+use std::{char, thread};
 
 extern crate ncurses;
 extern crate regex;
@@ -19,11 +20,19 @@ pub mod state;
 mod trimming;
 mod types;
 
+use crate::file_reading::SourceProducer;
 use crate::igrepper::constants::*;
 use crate::igrepper::core::Core;
 use crate::igrepper::output_generator::Len;
 use crate::igrepper::rendering::clear_screen;
 use crate::igrepper::state::{SearchLine, State};
+use inotify::Inotify;
+
+pub enum Message {
+    Character(i32),
+    ReloadFile,
+    ErrorMessage(String),
+}
 
 fn get_screen_size() -> (u32, u32) {
     let mut y: i32 = 0;
@@ -32,7 +41,12 @@ fn get_screen_size() -> (u32, u32) {
     (y as u32, x as u32)
 }
 
-pub fn igrepper(source: Vec<String>, initial_context: u32, initial_regex: Option<&str>) {
+pub fn igrepper(
+    source_producer: SourceProducer,
+    initial_context: u32,
+    initial_regex: Option<&str>,
+    inotify_option: Option<Inotify>,
+) {
     // Setup ncurses
     initscr();
     raw();
@@ -57,7 +71,7 @@ pub fn igrepper(source: Vec<String>, initial_context: u32, initial_regex: Option
 
     let mut core = core::Core::new();
     let mut state = state::State::new(
-        &source,
+        source_producer.get_source(),
         vec![SearchLine::new(
             String::from(initial_regex.unwrap_or("")),
             initial_context,
@@ -69,123 +83,161 @@ pub fn igrepper(source: Vec<String>, initial_context: u32, initial_regex: Option
         max_y,
         max_x,
     );
+    let (tx, rx) = mpsc::channel();
+
+    if let Some(mut inotify) = inotify_option {
+        let inotify_tx = tx.clone();
+        thread::spawn(move || {
+            let mut buffer = [0; 1024];
+
+            loop {
+                let events_result = inotify.read_events_blocking(&mut buffer);
+                match events_result {
+                    Ok(events) => {
+                        if events.count() > 0 {
+                            inotify_tx.send(Message::ReloadFile).unwrap();
+                        }
+                    }
+                    Err(e) => {
+                        inotify_tx
+                            .send(Message::ErrorMessage(e.to_string()))
+                            .unwrap();
+                    }
+                }
+            }
+        });
+    }
+
+    thread::spawn(move || loop {
+        let ch = getch();
+        tx.send(Message::Character(ch)).unwrap();
+    });
 
     loop {
         let render_state = core.get_render_state(&state);
         rendering::render(render_state);
         refresh();
-        let ch = getch();
-        match ch {
-            KEY_LEFT => {
-                state = {
-                    let widest = core.widest_line_seen_so_far(&state);
-                    state.page_x(-5, widest)
-                }
+        let message = rx.recv().unwrap();
+        match message {
+            Message::ReloadFile => {
+                state = state.set_source_lines(source_producer.get_source());
+                core.clear_cache();
             }
-            KEY_RIGHT => {
-                state = {
-                    let widest = core.widest_line_seen_so_far(&state);
-                    state.page_x(5, widest)
-                }
+            Message::ErrorMessage(message) => {
+                panic!(format!("Inotify error: {}", message));
             }
-            KEY_UP => state = page_y(-1, state, &mut core),
-            KEY_DOWN => state = page_y(1, state, &mut core),
+            Message::Character(ch) => match ch {
+                KEY_LEFT => {
+                    state = {
+                        let widest = core.widest_line_seen_so_far(&state);
+                        state.page_x(-5, widest)
+                    }
+                }
+                KEY_RIGHT => {
+                    state = {
+                        let widest = core.widest_line_seen_so_far(&state);
+                        state.page_x(5, widest)
+                    }
+                }
+                KEY_UP => state = page_y(-1, state, &mut core),
+                KEY_DOWN => state = page_y(1, state, &mut core),
 
-            3 => {
-                clear_screen();
-                endwin();
-                break;
-            }
-            KEY_PPAGE => {
-                state = {
-                    let y = state.max_y() as i32;
-                    page_y(-y, state, &mut core)
+                3 => {
+                    clear_screen();
+                    endwin();
+                    break;
                 }
-            }
-            KEY_NPAGE => {
-                state = {
-                    let y = state.max_y() as i32;
-                    page_y(y, state, &mut core)
+                KEY_PPAGE => {
+                    state = {
+                        let y = state.max_y() as i32;
+                        page_y(-y, state, &mut core)
+                    }
                 }
-            }
-            CTRL_U => {
-                state = {
-                    let y = state.max_y() as i32;
-                    page_y(-y / 2, state, &mut core)
+                KEY_NPAGE => {
+                    state = {
+                        let y = state.max_y() as i32;
+                        page_y(y, state, &mut core)
+                    }
                 }
-            }
-            CTRL_D => {
-                state = {
-                    let y = state.max_y() as i32;
-                    page_y(y / 2, state, &mut core)
+                CTRL_U => {
+                    state = {
+                        let y = state.max_y() as i32;
+                        page_y(-y / 2, state, &mut core)
+                    }
                 }
-            }
-            CTRL_L | KEY_RESIZE => {
-                let (max_y, max_x) = get_screen_size();
-                state = state.set_max_yx(max_y, max_x);
-                refresh();
-            }
-            CTRL_R => {
-                state = state.modify_context(-1);
-            }
-            CTRL_T => {
-                state = state.modify_context(1);
-            }
-            CTRL_N | KEY_ENTER | 0xa => {
-                state = state.accept_partial_match();
-            }
-            CTRL_P => {
-                state = state.revert_partial_match();
-            }
-            CTRL_I => {
-                state = state.toggle_case_sensitivity();
-            }
-            CTRL_V => {
-                state = state.toggle_inverted();
-            }
-            CTRL_G => {
-                if !state.regex_valid() || state.empty_search_lines() {
-                    continue;
+                CTRL_D => {
+                    state = {
+                        let y = state.max_y() as i32;
+                        page_y(y / 2, state, &mut core)
+                    }
                 }
-                clear_screen();
-                endwin();
-                copy_grep_to_clipboard(&state.search_lines());
-                break;
-            }
-            CTRL_E => {
-                if !state.regex_valid() {
-                    continue;
+                CTRL_L | KEY_RESIZE => {
+                    let (max_y, max_x) = get_screen_size();
+                    state = state.set_max_yx(max_y, max_x);
+                    refresh();
                 }
-                clear_screen();
-                endwin();
-                copy_full_to_clipboard_from_string(&core.get_full_output_string(&state));
-                break;
-            }
-            F1 | F1_2 => {
-                if !state.regex_valid() {
-                    continue;
+                CTRL_R => {
+                    state = state.modify_context(-1);
                 }
-                clear_screen();
-                endwin();
-                pipe_to_vim(&core.get_full_output_string(&state));
-                break;
-            }
-            CTRL_H | KEY_BACKSPACE => {
-                state = state.pop_search_char();
-                state = page_y(0, state, &mut core)
-            }
-            c => {
-                if let Some(new_char) = char::from_u32(c as u32) {
-                    state = state.push_search_char(new_char);
+                CTRL_T => {
+                    state = state.modify_context(1);
+                }
+                CTRL_N | KEY_ENTER | 0xa => {
+                    state = state.accept_partial_match();
+                }
+                CTRL_P => {
+                    state = state.revert_partial_match();
+                }
+                CTRL_I => {
+                    state = state.toggle_case_sensitivity();
+                }
+                CTRL_V => {
+                    state = state.toggle_inverted();
+                }
+                CTRL_G => {
+                    if !state.regex_valid() || state.empty_search_lines() {
+                        continue;
+                    }
+                    clear_screen();
+                    endwin();
+                    copy_grep_to_clipboard(&state.search_lines());
+                    break;
+                }
+                CTRL_E => {
+                    if !state.regex_valid() {
+                        continue;
+                    }
+                    clear_screen();
+                    endwin();
+                    copy_full_to_clipboard_from_string(&core.get_full_output_string(&state));
+                    break;
+                }
+                F1 | F1_2 => {
+                    if !state.regex_valid() {
+                        continue;
+                    }
+                    clear_screen();
+                    endwin();
+                    pipe_to_vim(&core.get_full_output_string(&state));
+                    break;
+                }
+                CTRL_H | KEY_BACKSPACE => {
+                    state = state.pop_search_char();
                     state = page_y(0, state, &mut core)
                 }
-            }
+                c => {
+                    if let Some(new_char) = char::from_u32(c as u32) {
+                        state = state.push_search_char(new_char);
+                        state = page_y(0, state, &mut core)
+                    }
+                }
+            },
         }
     }
 }
 
 /// Tries to page vertically, may query more output lines.
-fn page_y<'a>(amount: i32, s: State<'a>, c: &mut Core) -> State<'a> {
+fn page_y(amount: i32, s: State, c: &mut Core) -> State {
     let wanted_ypage = cmp::max(0, s.pager_y() as i32 + amount) as u32;
     let mut output_lines_count: u32;
 

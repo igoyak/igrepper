@@ -1,21 +1,21 @@
 extern crate clap;
 extern crate libc;
-use crate::igrepper::igrepper;
+
 use clap::{App, Arg};
+use inotify::{Inotify, WatchMask};
 use libc::close;
 use libc::open;
-use std::fs::File;
-use std::io;
-use std::io::prelude::*;
-use std::io::BufReader;
 
+use crate::igrepper::igrepper;
+use file_reading::{SourceInput, SourceProducer};
+mod file_reading;
 mod igrepper;
 
 const PARAMETER_ERROR: &str = "Data can only be passed by STDIN if no file parameter is specified";
 
 fn main() {
     let matches = App::new("igrepper")
-        .version("1.1.1")
+        .version("1.2.0")
         .about("The interactive grepper")
         .arg(
             Arg::with_name("regex")
@@ -45,27 +45,38 @@ fn main() {
                 .conflicts_with("regex")
                 .help("Preload the regular expression '\\S+'"),
         )
+        .arg(
+            Arg::with_name("follow")
+                .short("f")
+                .long("follow")
+                .requires("file")
+                .help("Reload the file as it changes. Requires [file] to be set."),
+        )
         .get_matches();
     let file_option = matches.value_of("file");
     let is_tty = unsafe { libc::isatty(libc::STDIN_FILENO as i32) } != 0;
-    let source = if is_tty {
-        let file_path = file_option.unwrap_or_else(|| {
+    let mut file_path: Option<&str> = None;
+    let source_producer: SourceProducer = if is_tty {
+        let path = file_option.unwrap_or_else(|| {
             eprintln!("{}", PARAMETER_ERROR);
             std::process::exit(1);
         });
-        read_source_from_file(file_path).unwrap_or_else(|error| {
-            eprintln!("Failed to open file '{}': {}", file_path, error);
-            std::process::exit(1);
-        })
+        file_path = Some(path);
+        SourceProducer {
+            input: SourceInput::FilePath(path.to_string()),
+        }
     } else {
         if file_option != None {
             eprintln!("{}", PARAMETER_ERROR);
             std::process::exit(1);
         }
-        let source = read_source_from_stdin();
+        let source = file_reading::read_source_from_stdin();
         reopen_stdin();
-        source
+        SourceProducer {
+            input: SourceInput::FullInput(source),
+        }
     };
+
     let context: u32 = match matches.value_of("context") {
         None => 0,
         Some(context_string) => context_string.parse::<u32>().unwrap(),
@@ -77,7 +88,22 @@ fn main() {
         matches.value_of("regex")
     };
 
-    igrepper(source, context, initial_regex);
+    let inotify = if matches.is_present("follow") {
+        let mut inotify = Inotify::init()
+            .expect("Failed to monitor file changes, error while initializing inotify instance");
+
+        inotify
+            .add_watch(
+                file_path.unwrap(),
+                WatchMask::MODIFY | WatchMask::CLOSE_WRITE,
+            )
+            .expect("Failed to add file watch");
+        Some(inotify)
+    } else {
+        None
+    };
+
+    igrepper(source_producer, context, initial_regex, inotify);
 }
 
 /// Close STDIN and open TTY as file descriptor 0.
@@ -91,16 +117,4 @@ fn reopen_stdin() {
         let open_returncode = open(ptr, 0);
         assert_eq!(open_returncode, 0, "Failed to open /dev/tty");
     }
-}
-
-fn read_source_from_file(file_path: &str) -> io::Result<Vec<String>> {
-    let file = File::open(file_path)?;
-    let reader = BufReader::new(file);
-    let source: Vec<String> = reader.lines().map(|res| res.unwrap()).collect();
-    Ok(source)
-}
-
-fn read_source_from_stdin() -> Vec<String> {
-    let stdin = io::stdin();
-    stdin.lock().lines().map(|res| res.unwrap()).collect()
 }

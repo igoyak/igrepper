@@ -39,6 +39,10 @@ impl Core {
         }
     }
 
+    pub fn clear_cache(&mut self) {
+        self.cache = HashMap::new();
+    }
+
     pub fn get_full_output_string(&mut self, state: &State) -> String {
         self.get_output_generator(state).full_string()
     }
@@ -147,7 +151,7 @@ mod tests {
         let source_lines = vec![String::from("blah")];
         let mut core = Core::new();
         let state = State::new(
-            &source_lines,
+            source_lines,
             vec![SearchLine::new(String::from(""), 0, true, false)],
             0,
             0,
@@ -169,7 +173,7 @@ mod tests {
         ];
         let mut core = Core::new();
         let state = State::new(
-            &source_lines,
+            source_lines,
             vec![SearchLine::new(String::from("1"), 1, true, false)],
             0,
             0,
@@ -190,7 +194,7 @@ mod tests {
             String::from("BB"),
         ];
         let state = State::new(
-            &source_lines,
+            source_lines,
             vec![
                 SearchLine::new(String::from("a"), 0, false, false),
                 SearchLine::new(String::from("b"), 0, true, false),
@@ -215,7 +219,7 @@ mod tests {
             String::from("c"),
         ];
         let state = State::new(
-            &source_lines,
+            source_lines,
             vec![
                 SearchLine::new(String::from("a"), 0, false, true),
                 SearchLine::new(String::from("b"), 0, true, true),
@@ -279,7 +283,7 @@ mod tests {
                         .map(|l| SearchLine::new(l.clone(), 0, case_sensitive.clone(), false))
                         .collect();
                     let state = State::new(
-                        &source_lines,
+                        source_lines.clone(),
                         search_lines_with_context.clone(),
                         0,
                         0,

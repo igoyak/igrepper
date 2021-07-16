@@ -42,6 +42,10 @@ See context around matches:
 
 ![](docs/context.gif)
 
+Reload the file as it changes (similar to `tail -f`):
+
+    i -f somefile.log
+
 ### Commands:
 
 Edit the current regex by typing.

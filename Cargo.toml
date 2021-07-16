@@ -1,6 +1,6 @@
 [package]
 name = "igrepper"
-version = "1.1.1"
+version = "1.2.0"
 authors = ["Gustav Larsson <gustav.e.larsson@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -12,6 +12,7 @@ ncurses = "5.101.0"
 libc = "0.2.93"
 clap = "2.33.3"
 regex = "1.4.5"
+inotify = "0.9"
 
 [dev-dependencies]
 serde = "1.0.123"
