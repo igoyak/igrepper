@@ -34,6 +34,11 @@ pub enum Message {
     ErrorMessage(String),
 }
 
+pub enum CharRequesterMessage {
+    ReadyToReceiveChar,
+    Exit,
+}
+
 fn get_screen_size() -> (u32, u32) {
     let mut y: i32 = 0;
     let mut x: i32 = 0;
@@ -84,6 +89,7 @@ pub fn igrepper(
         max_x,
     );
     let (tx, rx) = mpsc::channel();
+    let (char_requester_tx, char_requester_rx) = mpsc::channel();
 
     if let Some(mut inotify) = inotify_option {
         let inotify_tx = tx.clone();
@@ -109,14 +115,25 @@ pub fn igrepper(
     }
 
     thread::spawn(move || loop {
-        let ch = getch();
-        tx.send(Message::Character(ch)).unwrap();
+        match char_requester_rx
+            .recv()
+            .unwrap_or(CharRequesterMessage::Exit)
+        {
+            CharRequesterMessage::ReadyToReceiveChar => {
+                let ch = getch();
+                tx.send(Message::Character(ch)).unwrap();
+            }
+            CharRequesterMessage::Exit => {
+                break;
+            }
+        }
     });
 
     loop {
         let render_state = core.get_render_state(&state);
         rendering::render(render_state);
         refresh();
+        char_requester_tx.send(CharRequesterMessage::ReadyToReceiveChar);
         let message = rx.recv().unwrap();
         match message {
             Message::ReloadFile => {
