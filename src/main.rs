@@ -5,6 +5,7 @@ use clap::{App, Arg};
 use inotify::{Inotify, WatchMask};
 use libc::close;
 use libc::open;
+use std::env;
 
 use crate::igrepper::igrepper;
 use file_reading::{SourceInput, SourceProducer};
@@ -12,10 +13,11 @@ mod file_reading;
 mod igrepper;
 
 const PARAMETER_ERROR: &str = "Data can only be passed by STDIN if no file parameter is specified";
+const DEFAULT_EDITOR_COMMAND: [&str; 3] = ["vim", "-R", "-"];
 
 fn main() {
     let matches = App::new("igrepper")
-        .version("1.2.1")
+        .version("1.3.0")
         .about("The interactive grepper")
         .arg(
             Arg::with_name("regex")
@@ -103,7 +105,29 @@ fn main() {
         None
     };
 
-    igrepper(source_producer, context, initial_regex, inotify);
+    let external_editor: Vec<String> = get_external_editor();
+
+    igrepper(
+        source_producer,
+        context,
+        initial_regex,
+        inotify,
+        external_editor,
+    );
+}
+
+fn get_external_editor() -> Vec<String> {
+    if let Ok(a) = env::var("IGREPPER_EDITOR") {
+        let editor_command: Vec<String> =
+            a.split_ascii_whitespace().map(|s| s.to_string()).collect();
+        if editor_command.len() > 0 {
+            return editor_command;
+        }
+    }
+    DEFAULT_EDITOR_COMMAND
+        .iter()
+        .map(|s| s.to_string())
+        .collect()
 }
 
 /// Close STDIN and open TTY as file descriptor 0.

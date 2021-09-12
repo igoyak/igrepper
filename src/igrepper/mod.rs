@@ -51,6 +51,7 @@ pub fn igrepper(
     initial_context: u32,
     initial_regex: Option<&str>,
     inotify_option: Option<Inotify>,
+    external_editor: Vec<String>,
 ) {
     // Setup ncurses
     initscr();
@@ -235,7 +236,7 @@ pub fn igrepper(
                     }
                     clear_screen();
                     endwin();
-                    pipe_to_vim(&core.get_full_output_string(&state));
+                    pipe_to_external_editor(external_editor, &core.get_full_output_string(&state));
                     break;
                 }
                 CTRL_H | KEY_BACKSPACE => {
@@ -323,21 +324,28 @@ fn copy_to_clipboard(string: &String) -> () {
     child_process.wait().unwrap();
 }
 
-fn pipe_to_vim(string: &String) -> () {
-    let mut child_process = Command::new("vim")
-        .arg("-R")
-        .arg("-")
-        .stdin(Stdio::piped())
-        .spawn()
-        .expect("Failed to pipe to vim");
+fn pipe_to_external_editor(command_and_arguments: Vec<String>, string: &String) {
+    let command_path = command_and_arguments.first().unwrap();
+    let command_arguments = &command_and_arguments[1..command_and_arguments.len()];
+
+    let mut command = Command::new(command_path);
+    let mut command = &mut command;
+    for arg in command_arguments {
+        command = command.arg(arg);
+    }
+    let error_message = format!(
+        "Failed to pipe to external editor '{}'",
+        command_and_arguments.join(" ")
+    );
+    let mut child_process = command.stdin(Stdio::piped()).spawn().expect(&error_message);
 
     child_process
         .stdin
         .as_mut()
-        .unwrap()
+        .expect(&error_message)
         .write_all(string.as_bytes())
-        .unwrap();
-    child_process.wait().unwrap();
+        .expect(&error_message);
+    child_process.wait().expect(&error_message);
 }
 
 fn copy_full_to_clipboard_from_string(string_to_copy: &String) -> () {

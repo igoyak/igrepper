@@ -73,8 +73,22 @@ Exporting:
 | ------------- | ------------- |
 |    `ctrl-e` | Copy current match to clipboard |
 |    `ctrl-g` | Copy equivalent `grep` command to clipboard |
-|    `F1`     | Pipe current match to `vim` |
+|    `F1`     | Pipe current match to the configured external editor |
 |    (Inside vim) `F1` | Pipe current buffer to `igrepper` (add `map <F1> :silent :w !igrepper<CR>:q!<CR>` to your `.vimrc`) |
+
+### Configuration
+
+#### External editor
+
+Set the environment variable `IGREPPER_EDITOR` to a command and arguments, 
+separated by whitespace, to customize which editor is used when pressing `F1`.
+The command must support reading from `STDIN`.
+
+Example `.bashrc` configuration:
+
+    export IGREPPER_EDITOR="vim -R -" # vim in read-only mode (default)
+    export IGREPPER_EDITOR="code -" # vscode
+    export IGREPPER_EDITOR="nano -v -" # nano in read-only mode
 
 ## Supported platforms
 
