@@ -29,11 +29,11 @@ impl SourceProducer {
 fn read_source_from_file(file_path: &str) -> io::Result<Vec<String>> {
     let file = File::open(file_path)?;
     let reader = BufReader::new(file);
-    let source: Vec<String> = reader.lines().map(|res| res.unwrap()).collect();
+    let source: Vec<String> = reader.lines().filter_map(|line| line.ok()).collect();
     Ok(source)
 }
 
 pub fn read_source_from_stdin() -> Vec<String> {
     let stdin = io::stdin();
-    stdin.lock().lines().map(|res| res.unwrap()).collect()
+    stdin.lock().lines().filter_map(|line| line.ok()).collect()
 }
