@@ -1,7 +1,7 @@
 use ncurses::{
     curs_set, endwin, getch, getmaxyx, init_pair, initscr, keypad, noecho, raw, refresh,
     start_color, stdscr, CURSOR_VISIBILITY, KEY_BACKSPACE, KEY_DOWN, KEY_ENTER, KEY_LEFT,
-    KEY_NPAGE, KEY_PPAGE, KEY_RESIZE, KEY_RIGHT, KEY_UP,
+    KEY_NPAGE, KEY_PPAGE, KEY_RESIZE, KEY_RIGHT, KEY_UP, KEY_DC,
 };
 use std::cmp;
 use std::io::Write;
@@ -142,7 +142,7 @@ pub fn igrepper(
                 core.clear_cache();
             }
             Message::ErrorMessage(message) => {
-                panic!(format!("Inotify error: {}", message));
+                panic!("Inotify error: {}", message);
             }
             Message::Character(ch) => match ch {
                 KEY_LEFT => {
@@ -239,7 +239,7 @@ pub fn igrepper(
                     pipe_to_external_editor(external_editor, &core.get_full_output_string(&state));
                     break;
                 }
-                CTRL_H | KEY_BACKSPACE => {
+                CTRL_H | KEY_BACKSPACE | KEY_DC | 127 => {
                     state = state.pop_search_char();
                     state = page_y(0, state, &mut core)
                 }
