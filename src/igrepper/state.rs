@@ -515,7 +515,6 @@ mod tests {
 
     #[test]
     fn empty_search_lines() {
-        let longest_line_length = 15;
         let source_lines = get_source_lines();
         let state = State::new(
             source_lines,

@@ -134,7 +134,9 @@ pub fn igrepper(
         let render_state = core.get_render_state(&state);
         rendering::render(render_state);
         refresh();
-        char_requester_tx.send(CharRequesterMessage::ReadyToReceiveChar);
+        char_requester_tx
+            .send(CharRequesterMessage::ReadyToReceiveChar)
+            .unwrap();
         let message = rx.recv().unwrap();
         match message {
             Message::ReloadFile => {
@@ -142,7 +144,7 @@ pub fn igrepper(
                 core.clear_cache();
             }
             Message::ErrorMessage(message) => {
-                panic!(format!("Inotify error: {}", message));
+                panic!("Inotify error: {}", message);
             }
             Message::Character(ch) => match ch {
                 KEY_LEFT => {

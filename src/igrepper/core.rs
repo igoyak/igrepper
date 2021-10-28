@@ -310,25 +310,21 @@ mod tests {
                         actual_keys.difference(&expected_keys).cloned().collect();
                     assert!(
                         missing_keys.is_empty(),
-                        format!(
-                            "Missing keys in test result: {:?}",
-                            missing_keys
-                                .iter()
-                                .cloned()
-                                .collect::<Vec<String>>()
-                                .join(", ")
-                        )
+                        "Missing keys in test result: {:?}",
+                        missing_keys
+                            .iter()
+                            .cloned()
+                            .collect::<Vec<String>>()
+                            .join(", ")
                     );
                     assert!(
                         unexpected_keys.is_empty(),
-                        format!(
-                            "Unexpected keys in test result: {:?}",
-                            unexpected_keys
-                                .iter()
-                                .cloned()
-                                .collect::<Vec<String>>()
-                                .join(", ")
-                        )
+                        "Unexpected keys in test result: {:?}",
+                        unexpected_keys
+                            .iter()
+                            .cloned()
+                            .collect::<Vec<String>>()
+                            .join(", ")
                     );
                     expected_keys.iter().for_each(|k| {
                         assert_eq!(
