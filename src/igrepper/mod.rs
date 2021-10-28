@@ -239,7 +239,7 @@ pub fn igrepper(
                     pipe_to_external_editor(external_editor, &core.get_full_output_string(&state));
                     break;
                 }
-                CTRL_H | KEY_BACKSPACE => {
+                CTRL_H | KEY_BACKSPACE | ALTERNATIVE_BACKSPACE => {
                     state = state.pop_search_char();
                     state = page_y(0, state, &mut core)
                 }

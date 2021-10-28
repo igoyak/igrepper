@@ -40,3 +40,4 @@ pub const CTRL_U: i32 = 'u' as i32 - 0x60;
 pub const CTRL_V: i32 = 'v' as i32 - 0x60;
 pub const F1: i32 = 27;
 pub const F1_2: i32 = 265;
+pub const ALTERNATIVE_BACKSPACE: i32 = 127;
