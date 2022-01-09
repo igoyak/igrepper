@@ -1,17 +1,23 @@
 # igrepper - The interactive grepper
 
-Filter and explore text, having the regex re-evaluated at every keypress to
-minimize the feedback loop. 
-Also useful for quickly developing and testing regular expressions
-for other applications. 
+Filter and explore text with instant feedback. The regex is re-evaluated at every keypress. 
+Also useful for quickly developing and testing regular expressions. 
 
 ![](docs/basic_usage.gif)
 
 # Installation
 
+Either: 
+1. __Download binary__  
 To install without setting up a rust environment, grab the `igrepper` binary from the
 latest release: https://github.com/igoyak/igrepper/releases  
 Then make it executable with `chmod` and put it in your `PATH`.
+
+1. __Install using cargo__  
+`cargo install igrepper`
+
+1. __Build and run from source code__  
+`cargo run`
 
 __Dependencies__
 
@@ -106,4 +112,5 @@ Ubuntu: `apt-get install libncurses-dev`
 ## Release build
 
 `cargo build --release`
+`cargo publish`
 
