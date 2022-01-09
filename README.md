@@ -1,23 +1,24 @@
 # igrepper - The interactive grepper
 
-Filter and explore text with instant feedback. The regex is re-evaluated at every keypress. 
-Also useful for quickly developing and testing regular expressions. 
+Filter and explore text with instant feedback. The regex is re-evaluated at every keypress. Also useful for quickly
+developing and testing regular expressions.
 
 ![](docs/basic_usage.gif)
 
 # Installation
 
-Either: 
+Either:
+
 1. __Download binary__  
-To install without setting up a rust environment, grab the `igrepper` binary from the
-latest release: https://github.com/igoyak/igrepper/releases  
-Then make it executable with `chmod` and put it in your `PATH`.
+   To install without setting up a rust environment, grab the `igrepper` binary from the latest
+   release: https://github.com/igoyak/igrepper/releases  
+   Then make it executable with `chmod` and put it in your `PATH`.
 
 1. __Install using cargo__  
-`cargo install igrepper`
+   `cargo install igrepper`
 
 1. __Build and run from source code__  
-`cargo run`
+   `cargo run`
 
 __Dependencies__
 
@@ -40,11 +41,11 @@ __Read input from file:__
 
     i /etc/fstab
 
-Create a `grep` command using `ctrl-g`: 
+Create a `grep` command using `ctrl-g`:
 
 ![](docs/grep.gif)
 
-See context around matches: 
+See context around matches:
 
 ![](docs/context.gif)
 
@@ -56,7 +57,7 @@ Reload the file as it changes (similar to `tail -f`):
 
 Edit the current regex by typing.
 
-Movement: 
+Movement:
 
 | Command       | Action        |
 | ------------- | ------------- |
@@ -86,9 +87,8 @@ Exporting:
 
 #### External editor
 
-Set the environment variable `IGREPPER_EDITOR` to a command and arguments, 
-separated by whitespace, to customize which editor is used when pressing `F1`.
-The command must support reading from `STDIN`.
+Set the environment variable `IGREPPER_EDITOR` to a command and arguments, separated by whitespace, to customize which
+editor is used when pressing `F1`. The command must support reading from `STDIN`.
 
 Example `.bashrc` configuration:
 
@@ -103,7 +103,9 @@ Tested on Ubuntu 20.04
 ## Known issues
 
 - No unicode support
-- Broken colors when using `screen`/`tmux` and `urxvt`. Workaround: `export TERM=rxvt-unicode-256color`
+- Broken colors when using `screen`/`tmux` and `urxvt`. As a workaround, you can either:
+    - Run `export TERM=rxvt-unicode-256color`
+    - Add `term screen-256color` to your `.screenrc`
 
 ## Dev dependencies
 
