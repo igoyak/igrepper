@@ -111,8 +111,17 @@ Tested on Ubuntu 20.04
 
 Ubuntu: `apt-get install libncurses-dev`
 
-## Release build
+## Build release version
 
-`cargo build --release`
-`cargo publish`
+Either: 
+- `cargo build --release`
+- `rm -r target/; docker build . -t igrepperbuild && docker run  --user "$(id -u)":"$(id -g)" -v "$PWD":/usr/src/myapp -w /usr/src/myapp igrepperbuild`
 
+## Publish release
+
+- Bump version in Cargo.toml
+- Bump version in main.rs
+- `cargo publish --dry-run`
+- `cargo publish`
+- `git push`
+- Create release in Github from `./target/release/igrepper`

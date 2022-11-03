@@ -17,7 +17,7 @@ const DEFAULT_EDITOR_COMMAND: [&str; 3] = ["vim", "-R", "-"];
 
 fn main() {
     let matches = App::new("igrepper")
-        .version("1.3.1")
+        .version("1.3.3")
         .about("The interactive grepper")
         .arg(
             Arg::with_name("regex")
