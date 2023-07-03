@@ -115,7 +115,7 @@ Ubuntu: `apt-get install libncurses-dev`
 
 Either: 
 - `cargo build --release`
-- `rm -r target/; docker build . -t igrepperbuild && docker run  --user "$(id -u)":"$(id -g)" -v "$PWD":/usr/src/myapp -w /usr/src/myapp igrepperbuild`
+- `rm -r dockertarget; docker build . -t igrepperbuild && docker run --name igrepperbuild igrepperbuild && docker cp igrepperbuild:/tmp/target/release dockertarget; docker rm igrepperbuild`
 
 ## Publish release
 
