@@ -2,6 +2,8 @@ use std::fs::File;
 use std::io;
 use std::io::{BufRead, BufReader};
 
+use anyhow::{Context, Result};
+
 #[derive(Debug, Clone)]
 pub enum SourceInput {
     FullInput(Vec<String>),
@@ -13,15 +15,11 @@ pub struct SourceProducer {
 }
 
 impl SourceProducer {
-    pub fn get_source(&self) -> Vec<String> {
+    pub fn get_source(&self) -> Result<Vec<String>> {
         match &self.input {
-            SourceInput::FilePath(path) => {
-                read_source_from_file(path.as_str()).unwrap_or_else(|error| {
-                    eprintln!("Failed to open file '{}': {}", path, error);
-                    std::process::exit(1);
-                })
-            }
-            SourceInput::FullInput(full_input) => full_input.clone(),
+            SourceInput::FilePath(path) => read_source_from_file(path.as_str())
+                .with_context(|| format!("Failed to open file '{}'", path)),
+            SourceInput::FullInput(full_input) => Ok(full_input.clone()),
         }
     }
 }

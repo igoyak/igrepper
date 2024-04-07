@@ -13,6 +13,7 @@ libc = "0.2.93"
 clap = "2.33.3"
 regex = "1.5"
 inotify = "0.10"
+anyhow = "1.0.81"
 
 [dev-dependencies]
 serde = "1.0.123"

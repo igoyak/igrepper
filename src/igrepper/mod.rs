@@ -26,6 +26,7 @@ use crate::igrepper::core::Core;
 use crate::igrepper::output_generator::Len;
 use crate::igrepper::rendering::clear_screen;
 use crate::igrepper::state::{SearchLine, State};
+use anyhow::Result;
 use inotify::Inotify;
 
 pub enum Message {
@@ -52,7 +53,9 @@ pub fn igrepper(
     initial_regex: Option<&str>,
     inotify_option: Option<Inotify>,
     external_editor: Vec<String>,
-) {
+) -> Result<()> {
+    let source = source_producer.get_source()?;
+
     // Setup ncurses
     initscr();
     raw();
@@ -77,7 +80,7 @@ pub fn igrepper(
 
     let mut core = core::Core::new();
     let mut state = state::State::new(
-        source_producer.get_source(),
+        source,
         vec![SearchLine::new(
             String::from(initial_regex.unwrap_or("")),
             initial_context,
@@ -140,7 +143,12 @@ pub fn igrepper(
         let message = rx.recv().unwrap();
         match message {
             Message::ReloadFile => {
-                state = state.set_source_lines(source_producer.get_source());
+                let source = source_producer.get_source().map_err(|err| {
+                    clear_screen();
+                    endwin();
+                    err
+                })?;
+                state = state.set_source_lines(source);
                 core.clear_cache();
             }
             Message::ErrorMessage(message) => {
@@ -254,6 +262,7 @@ pub fn igrepper(
             },
         }
     }
+    Ok(())
 }
 
 /// Tries to page vertically, may query more output lines.

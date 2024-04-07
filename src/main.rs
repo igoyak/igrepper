@@ -114,7 +114,8 @@ fn main() {
         initial_regex,
         inotify,
         external_editor,
-    );
+    )
+    .unwrap();
 }
 
 fn get_external_editor() -> Vec<String> {
