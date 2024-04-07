@@ -421,14 +421,14 @@ mod tests {
     fn push_char() {
         let source_lines = get_source_lines();
         let state = get_state(source_lines).push_search_char('e');
-        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"de\", context: 0, case_sensitive: false, inverse: false }], last_valid_regex: (?i)de, pager_x: 0, pager_y: 0, max_y: 10, max_x: 10 }");
+        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"de\", context: 0, case_sensitive: false, inverse: false }], last_valid_regex: Regex(\"(?i)de\"), pager_x: 0, pager_y: 0, max_y: 10, max_x: 10 }");
     }
 
     #[test]
     fn push_char_create_invalid_regex() {
         let source_lines = get_source_lines();
         let state = get_state(source_lines).push_search_char('\\');
-        assert_eq!(format!("{:?}", state.last_valid_regex()), "(?i)d");
+        assert_eq!(format!("{:?}", state.last_valid_regex()), "Regex(\"(?i)d\")");
     }
 
     #[test]
@@ -436,16 +436,16 @@ mod tests {
         let source_lines = get_source_lines();
         let state = get_state(source_lines).pop_search_char();
 
-        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"\", context: 0, case_sensitive: false, inverse: false }], last_valid_regex: (?i), pager_x: 0, pager_y: 0, max_y: 10, max_x: 10 }");
+        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"\", context: 0, case_sensitive: false, inverse: false }], last_valid_regex: Regex(\"(?i)\"), pager_x: 0, pager_y: 0, max_y: 10, max_x: 10 }");
         let state = state.pop_search_char();
-        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"\", context: 0, case_sensitive: false, inverse: false }], last_valid_regex: (?i), pager_x: 0, pager_y: 0, max_y: 10, max_x: 10 }");
+        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"\", context: 0, case_sensitive: false, inverse: false }], last_valid_regex: Regex(\"(?i)\"), pager_x: 0, pager_y: 0, max_y: 10, max_x: 10 }");
     }
 
     #[test]
     fn accepting_match() {
         let source_lines = get_source_lines();
         let state = get_state(source_lines).accept_partial_match();
-        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"d\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"\", context: 0, case_sensitive: false, inverse: false }], last_valid_regex: (?i), pager_x: 0, pager_y: 0, max_y: 10, max_x: 10 }");
+        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"d\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"\", context: 0, case_sensitive: false, inverse: false }], last_valid_regex: Regex(\"(?i)\"), pager_x: 0, pager_y: 0, max_y: 10, max_x: 10 }");
     }
 
     #[test]
@@ -454,41 +454,41 @@ mod tests {
         let state = get_state(source_lines)
             .push_search_char('\\')
             .accept_partial_match();
-        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"d\\\\\", context: 0, case_sensitive: false, inverse: false }], last_valid_regex: (?i)d, pager_x: 0, pager_y: 0, max_y: 10, max_x: 10 }");
+        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"d\\\\\", context: 0, case_sensitive: false, inverse: false }], last_valid_regex: Regex(\"(?i)d\"), pager_x: 0, pager_y: 0, max_y: 10, max_x: 10 }");
     }
 
     #[test]
     fn reverting_match() {
         let source_lines = get_source_lines();
         let state = get_state(source_lines).revert_partial_match();
-        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }], last_valid_regex: (?i)abc, pager_x: 0, pager_y: 0, max_y: 10, max_x: 10 }");
+        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }], last_valid_regex: Regex(\"(?i)abc\"), pager_x: 0, pager_y: 0, max_y: 10, max_x: 10 }");
     }
 
     #[test]
     fn incrementing_context() {
         let source_lines = get_source_lines();
         let state = get_state(source_lines).modify_context(1);
-        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"d\", context: 1, case_sensitive: false, inverse: false }], last_valid_regex: (?i)d, pager_x: 0, pager_y: 0, max_y: 10, max_x: 10 }");
+        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"d\", context: 1, case_sensitive: false, inverse: false }], last_valid_regex: Regex(\"(?i)d\"), pager_x: 0, pager_y: 0, max_y: 10, max_x: 10 }");
         let state = state.modify_context(2);
-        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"d\", context: 3, case_sensitive: false, inverse: false }], last_valid_regex: (?i)d, pager_x: 0, pager_y: 0, max_y: 10, max_x: 10 }");
+        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"d\", context: 3, case_sensitive: false, inverse: false }], last_valid_regex: Regex(\"(?i)d\"), pager_x: 0, pager_y: 0, max_y: 10, max_x: 10 }");
     }
 
     #[test]
     fn decrementing_context() {
         let source_lines = get_source_lines();
         let state = get_state(source_lines).modify_context(-1);
-        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"d\", context: 0, case_sensitive: false, inverse: false }], last_valid_regex: (?i)d, pager_x: 0, pager_y: 0, max_y: 10, max_x: 10 }");
+        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"d\", context: 0, case_sensitive: false, inverse: false }], last_valid_regex: Regex(\"(?i)d\"), pager_x: 0, pager_y: 0, max_y: 10, max_x: 10 }");
     }
 
     #[test]
     fn page_y() {
         let source_lines = get_source_lines();
         let state = get_state(source_lines).page_y(1, 10);
-        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"d\", context: 0, case_sensitive: false, inverse: false }], last_valid_regex: (?i)d, pager_x: 0, pager_y: 1, max_y: 10, max_x: 10 }");
+        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"d\", context: 0, case_sensitive: false, inverse: false }], last_valid_regex: Regex(\"(?i)d\"), pager_x: 0, pager_y: 1, max_y: 10, max_x: 10 }");
         let state = state.page_y(100, 10);
-        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"d\", context: 0, case_sensitive: false, inverse: false }], last_valid_regex: (?i)d, pager_x: 0, pager_y: 7, max_y: 10, max_x: 10 }");
+        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"d\", context: 0, case_sensitive: false, inverse: false }], last_valid_regex: Regex(\"(?i)d\"), pager_x: 0, pager_y: 7, max_y: 10, max_x: 10 }");
         let state = state.page_y(-100, 10);
-        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"d\", context: 0, case_sensitive: false, inverse: false }], last_valid_regex: (?i)d, pager_x: 0, pager_y: 0, max_y: 10, max_x: 10 }");
+        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"d\", context: 0, case_sensitive: false, inverse: false }], last_valid_regex: Regex(\"(?i)d\"), pager_x: 0, pager_y: 0, max_y: 10, max_x: 10 }");
     }
 
     #[test]
@@ -496,11 +496,11 @@ mod tests {
         let longest_line_length = 15;
         let source_lines = get_source_lines();
         let state = get_state(source_lines).page_x(1, longest_line_length);
-        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"d\", context: 0, case_sensitive: false, inverse: false }], last_valid_regex: (?i)d, pager_x: 1, pager_y: 0, max_y: 10, max_x: 10 }");
+        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"d\", context: 0, case_sensitive: false, inverse: false }], last_valid_regex: Regex(\"(?i)d\"), pager_x: 1, pager_y: 0, max_y: 10, max_x: 10 }");
         let state = state.page_x(100, longest_line_length);
-        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"d\", context: 0, case_sensitive: false, inverse: false }], last_valid_regex: (?i)d, pager_x: 7, pager_y: 0, max_y: 10, max_x: 10 }");
+        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"d\", context: 0, case_sensitive: false, inverse: false }], last_valid_regex: Regex(\"(?i)d\"), pager_x: 7, pager_y: 0, max_y: 10, max_x: 10 }");
         let state = state.page_x(-100, longest_line_length);
-        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"d\", context: 0, case_sensitive: false, inverse: false }], last_valid_regex: (?i)d, pager_x: 0, pager_y: 0, max_y: 10, max_x: 10 }");
+        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"d\", context: 0, case_sensitive: false, inverse: false }], last_valid_regex: Regex(\"(?i)d\"), pager_x: 0, pager_y: 0, max_y: 10, max_x: 10 }");
     }
 
     #[test]
@@ -508,9 +508,9 @@ mod tests {
         let longest_line_length = 15;
         let source_lines = get_source_lines();
         let state = get_state(source_lines).page_x(1, longest_line_length);
-        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"d\", context: 0, case_sensitive: false, inverse: false }], last_valid_regex: (?i)d, pager_x: 1, pager_y: 0, max_y: 10, max_x: 10 }");
+        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"d\", context: 0, case_sensitive: false, inverse: false }], last_valid_regex: Regex(\"(?i)d\"), pager_x: 1, pager_y: 0, max_y: 10, max_x: 10 }");
         let state = state.toggle_inverted();
-        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"d\", context: 0, case_sensitive: false, inverse: true }], last_valid_regex: (?i)d, pager_x: 1, pager_y: 0, max_y: 10, max_x: 10 }");
+        assert_eq!(format!("{:?}", state), "State { source_lines: [\"one\", \"two\", \"three\"], search_lines: [SearchLine { line: \"abc\", context: 0, case_sensitive: false, inverse: false }, SearchLine { line: \"d\", context: 0, case_sensitive: false, inverse: true }], last_valid_regex: Regex(\"(?i)d\"), pager_x: 1, pager_y: 0, max_y: 10, max_x: 10 }");
     }
 
     #[test]
