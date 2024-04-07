@@ -29,7 +29,7 @@ pub fn produce_render_state(
     max_x: u32,
     pager_y: u32,
     pager_x: u32,
-    search_lines: &Vec<SearchLine>,
+    search_lines: &[SearchLine],
     context: u32,
     result_generator: &mut OutputGenerator,
 ) -> RenderState {
@@ -66,11 +66,7 @@ pub fn produce_render_state(
             content_width(max_x),
         ),
         output_display_lines,
-        status_line: status_line
-            .chars()
-            .into_iter()
-            .take(max_x as usize)
-            .collect(),
+        status_line: status_line.chars().take(max_x as usize).collect(),
     }
 }
 
@@ -109,8 +105,8 @@ fn output_lines_display_format(
     let mut color_number: u32 = 0;
     let mut get_color = |string: &str| -> u32 {
         let s = String::from(string);
-        if !matches_to_colors.contains_key(&s) {
-            matches_to_colors.insert(s, color_number);
+        if let std::collections::hash_map::Entry::Vacant(e) = matches_to_colors.entry(s) {
+            e.insert(color_number);
             if color_number < MAX_MATCH_COLORS as u32 - 1 {
                 color_number += 1;
             }
@@ -163,25 +159,17 @@ fn trim_and_colorize_line<F: FnMut(&str) -> u32>(
         }
         // partial drop
         if chars_to_drop > 0 {
-            s = s
-                .chars()
-                .into_iter()
-                .skip(chars_to_drop as usize)
-                .collect::<String>();
+            s = s.chars().skip(chars_to_drop as usize).collect::<String>();
             chars_to_drop = 0;
         }
         // take
         if s.chars().count() as u32 > chars_to_take {
-            let right_trimmed = s
-                .chars()
-                .into_iter()
-                .take(chars_to_take as usize)
-                .collect::<String>();
+            let right_trimmed = s.chars().take(chars_to_take as usize).collect::<String>();
             chars_to_take = 0;
             return right_trimmed;
         }
         chars_to_take -= s.chars().count() as u32;
-        return s;
+        s
     };
 
     for match_range in &line_with_match_ranges.matches {
@@ -194,9 +182,7 @@ fn trim_and_colorize_line<F: FnMut(&str) -> u32>(
             cell_width += string_before_match.chars().count();
             let string_before_match = trim_horizontally(string_before_match);
             if !string_before_match.is_empty() {
-                display_line.push(StringWithColorIndex::String(String::from(
-                    string_before_match,
-                )));
+                display_line.push(StringWithColorIndex::String(string_before_match));
             }
         }
 
@@ -211,7 +197,7 @@ fn trim_and_colorize_line<F: FnMut(&str) -> u32>(
         let string_with_match = trim_horizontally(string_with_match);
         if !string_with_match.is_empty() {
             display_line.push(StringWithColorIndex::MatchString((
-                String::from(string_with_match),
+                string_with_match,
                 color,
             )));
         }
@@ -223,21 +209,17 @@ fn trim_and_colorize_line<F: FnMut(&str) -> u32>(
             replace_tabs_with_spaces(cell_width as u32, &original_line[last_match.end as usize..]);
         let string_after_last_match = trim_horizontally(string_after_last_match);
         if !string_after_last_match.is_empty() {
-            display_line.push(StringWithColorIndex::String(String::from(
-                string_after_last_match,
-            )));
+            display_line.push(StringWithColorIndex::String(string_after_last_match));
         }
     } else {
         // No matches on this line
         let full_line_without_matches = replace_tabs_with_spaces(cell_width as u32, original_line);
         let full_line_without_matches = trim_horizontally(full_line_without_matches);
         if !full_line_without_matches.is_empty() {
-            display_line.push(StringWithColorIndex::String(String::from(
-                full_line_without_matches,
-            )));
+            display_line.push(StringWithColorIndex::String(full_line_without_matches));
         }
     }
-    return StringWithColorIndexOrBreakLine::StringWithColorIndex(display_line);
+    StringWithColorIndexOrBreakLine::StringWithColorIndex(display_line)
 }
 
 /// Returns the same string where every tab is replaced with 1-4 spaces,
@@ -292,7 +274,7 @@ fn input_window_height(max_y: u32, search_lines: u32) -> u32 {
 /// Trim search lines by width and height
 fn search_lines_display_format(
     input_window_height: u32,
-    search_lines: &Vec<SearchLine>,
+    search_lines: &[SearchLine],
     content_width: u32,
 ) -> Vec<SearchLine> {
     let lines_to_take = cmp::min(

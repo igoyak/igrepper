@@ -11,7 +11,7 @@ pub fn clear_screen() {
     let mut y: i32 = 0;
     let mut x: i32 = 0;
     getmaxyx(stdscr(), &mut y, &mut x);
-    let input_window = newwin(y as i32, x as i32, 0, 0);
+    let input_window = newwin(y, x, 0, 0);
     wbkgd(
         input_window,
         ' ' as chtype | COLOR_PAIR(COLOR_PAIR_DEFAULT) as chtype,
@@ -110,7 +110,7 @@ pub fn render(render_state: RenderState) {
                 for line_part in real_line {
                     match line_part {
                         StringWithColorIndex::String(s) => {
-                            mvwaddstr(pager_window, i as i32 + 1, xpos, &s);
+                            mvwaddstr(pager_window, i as i32 + 1, xpos, s);
                             xpos += s.len() as i32;
                         }
                         StringWithColorIndex::MatchString(s) => {
@@ -126,7 +126,7 @@ pub fn render(render_state: RenderState) {
             }
             StringWithColorIndexOrBreakLine::BreakLine => {
                 wattron(pager_window, COLOR_PAIR(COLOR_PAIR_BORDER));
-                let line_char: chtype = ('-' as u32).into();
+                let line_char: chtype = '-' as u32;
                 mvwhline(
                     pager_window,
                     i as i32 + 1,
@@ -149,6 +149,6 @@ pub fn render(render_state: RenderState) {
         status_window,
         ' ' as chtype | COLOR_PAIR(COLOR_PAIR_DEFAULT) as chtype,
     );
-    mvwaddstr(status_window, 0, 0, &*render_state.status_line);
+    mvwaddstr(status_window, 0, 0, &render_state.status_line);
     wrefresh(status_window);
 }

@@ -32,7 +32,7 @@ use inotify::Inotify;
 pub enum Message {
     Character(i32),
     ReloadFile,
-    ErrorMessage(String),
+    Error(String),
 }
 
 pub enum CharRequesterMessage {
@@ -71,7 +71,7 @@ pub fn igrepper(
     init_pair(COLOR_PAIR_BORDER, 8i16, 232i16);
 
     for (i, c) in MATCH_COLORS.iter().enumerate() {
-        init_pair(i as i16 + 1, c.clone(), 232i16);
+        init_pair(i as i16 + 1, *c, 232i16);
     }
 
     refresh();
@@ -109,9 +109,7 @@ pub fn igrepper(
                         }
                     }
                     Err(e) => {
-                        inotify_tx
-                            .send(Message::ErrorMessage(e.to_string()))
-                            .unwrap();
+                        inotify_tx.send(Message::Error(e.to_string())).unwrap();
                     }
                 }
             }
@@ -151,7 +149,7 @@ pub fn igrepper(
                 state = state.set_source_lines(source);
                 core.clear_cache();
             }
-            Message::ErrorMessage(message) => {
+            Message::Error(message) => {
                 panic!("Inotify error: {}", message);
             }
             Message::Character(ch) => match ch {
@@ -287,13 +285,13 @@ fn page_y(amount: i32, s: State, c: &mut Core) -> State {
     s.page_y(amount, output_lines_count)
 }
 
-fn copy_grep_to_clipboard(search_lines: &Vec<SearchLine>) -> () {
+fn copy_grep_to_clipboard(search_lines: &[SearchLine]) {
     let grep_line = construct_grep_line(search_lines);
     copy_to_clipboard(&grep_line);
     print_copied_to_clipboard(grep_line);
 }
 
-fn construct_grep_line(search_lines: &Vec<SearchLine>) -> String {
+fn construct_grep_line(search_lines: &[SearchLine]) -> String {
     search_lines
         .iter()
         .filter(|l| !l.line.is_empty())
@@ -306,7 +304,7 @@ fn construct_grep_line(search_lines: &Vec<SearchLine>) -> String {
                 } else {
                     String::from("")
                 },
-                regex = l.line_with_sensitivity_prefix().replace("'", "'\\''"),
+                regex = l.line_with_sensitivity_prefix().replace('\'', "'\\''"),
                 inverted = if l.inverse { " -v" } else { "" }
             )
         })
@@ -315,10 +313,10 @@ fn construct_grep_line(search_lines: &Vec<SearchLine>) -> String {
 }
 
 fn grep_path() -> String {
-    return "grep".to_string();
+    "grep".to_string()
 }
 
-fn copy_to_clipboard(string: &String) -> () {
+fn copy_to_clipboard(string: &String) {
     let mut child_process = Command::new("xsel")
         .arg("--clipboard")
         .arg("--input")
@@ -359,8 +357,8 @@ fn pipe_to_external_editor(command_and_arguments: Vec<String>, string: &String) 
     child_process.wait().expect(&error_message);
 }
 
-fn copy_full_to_clipboard_from_string(string_to_copy: &String) -> () {
-    copy_to_clipboard(&string_to_copy);
+fn copy_full_to_clipboard_from_string(string_to_copy: &String) {
+    copy_to_clipboard(string_to_copy);
     print_copied_to_clipboard(string_to_copy.clone());
 }
 

@@ -63,7 +63,7 @@ impl Core {
 
     pub fn get_render_state(&mut self, state: &State) -> RenderState {
         let output_generator = self.get_output_generator(state);
-        return produce_render_state(
+        produce_render_state(
             state.regex_valid(),
             state.max_y(),
             state.max_x(),
@@ -72,14 +72,14 @@ impl Core {
             &state.search_lines(),
             state.current_context(),
             output_generator,
-        );
+        )
     }
 
     fn get_output_generator(&mut self, state: &State) -> &mut OutputGenerator {
-        self.populate_cache(&state);
+        self.populate_cache(state);
         &mut self
             .cache
-            .get_mut(&get_cache_key(&state))
+            .get_mut(&get_cache_key(state))
             .unwrap()
             .output_generator
     }
@@ -91,7 +91,7 @@ impl Core {
         }
 
         let s = state.search_line_strings().last().unwrap().clone();
-        let maybe_cache_entry = self.cache.get_mut(&get_cache_key(&state));
+        let maybe_cache_entry = self.cache.get_mut(&get_cache_key(state));
 
         let mut cache_ok = true;
         if let Some(cache_entry) = maybe_cache_entry {
@@ -121,7 +121,7 @@ impl Core {
                 state.inverted(),
             );
             self.cache.insert(
-                get_cache_key(&state),
+                get_cache_key(state),
                 CacheEntry {
                     search_line: s,
                     output_generator,
@@ -251,7 +251,7 @@ mod tests {
             }
         }
 
-        let source_lines_list = vec![
+        let source_lines_list = [
             vec![String::from("")],
             vec![String::from("blah")],
             vec![
@@ -259,9 +259,7 @@ mod tests {
                 String::from("two"),
                 String::from("three"),
             ],
-            (0..100)
-                .map(|i| String::from(format!("{}", i)))
-                .collect::<Vec<String>>(),
+            (0..100).map(|i| format!("{}", i)).collect::<Vec<String>>(),
         ];
         let search_lines_list = vec![
             vec![String::from("")],
@@ -275,12 +273,12 @@ mod tests {
             vec![String::from("\\")], // invalid regex
         ];
         let mut test_results: HashMap<String, String> = HashMap::new();
-        for case_sensitive in vec![true, false].iter() {
+        for case_sensitive in [true, false].iter() {
             source_lines_list.iter().for_each(|source_lines| {
                 search_lines_list.iter().for_each(|search_lines| {
                     let search_lines_with_context: Vec<SearchLine> = search_lines
                         .iter()
-                        .map(|l| SearchLine::new(l.clone(), 0, case_sensitive.clone(), false))
+                        .map(|l| SearchLine::new(l.clone(), 0, *case_sensitive, false))
                         .collect();
                     let state = State::new(
                         source_lines.clone(),

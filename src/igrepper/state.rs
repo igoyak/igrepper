@@ -140,10 +140,7 @@ impl State {
     }
 
     pub fn regex_valid(&self) -> bool {
-        return match self.regex() {
-            Ok(_) => true,
-            Err(_) => false,
-        };
+        self.regex().is_ok()
     }
 
     pub fn regex(&self) -> Result<Regex, Error> {
@@ -194,7 +191,7 @@ impl State {
     }
 
     pub fn accept_partial_match(self) -> State {
-        if self.search_lines.last().unwrap().line != "" && self.regex_valid() {
+        if !self.search_lines.last().unwrap().line.is_empty() && self.regex_valid() {
             let mut search_lines = self.search_lines.clone();
             search_lines.push(SearchLine {
                 line: String::from(""),
@@ -293,15 +290,14 @@ impl State {
     /// Moves the pager vertically
     /// Clamps the new pager position to only allow valid values
     pub fn page_y(self, amount: i32, output_line_count: u32) -> State {
-        let pager_y: u32;
-        if amount >= 0 {
+        let pager_y: u32 = if amount >= 0 {
             let pager_y_max = output_line_count.saturating_sub(pager_content_height(
                 pager_window_height(self.max_y, self.search_lines.len() as u32),
             ));
-            pager_y = cmp::min(pager_y_max, self.pager_y.saturating_add(amount as u32));
+            cmp::min(pager_y_max, self.pager_y.saturating_add(amount as u32))
         } else {
-            pager_y = self.pager_y.saturating_sub(amount.wrapping_abs() as u32);
-        }
+            self.pager_y.saturating_sub(amount.wrapping_abs() as u32)
+        };
         State::new_with_regex(
             self.source_lines,
             self.search_lines.clone(),

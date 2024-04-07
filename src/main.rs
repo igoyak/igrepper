@@ -56,7 +56,7 @@ fn main() {
         )
         .get_matches();
     let file_option = matches.value_of("file");
-    let is_tty = unsafe { libc::isatty(libc::STDIN_FILENO as i32) } != 0;
+    let is_tty = unsafe { libc::isatty(libc::STDIN_FILENO) } != 0;
     let mut file_path: Option<&str> = None;
     let source_producer: SourceProducer = if is_tty {
         let path = file_option.unwrap_or_else(|| {
@@ -68,7 +68,7 @@ fn main() {
             input: SourceInput::FilePath(path.to_string()),
         }
     } else {
-        if file_option != None {
+        if file_option.is_some() {
             eprintln!("{}", PARAMETER_ERROR);
             std::process::exit(1);
         }
@@ -122,7 +122,7 @@ fn get_external_editor() -> Vec<String> {
     if let Ok(a) = env::var("IGREPPER_EDITOR") {
         let editor_command: Vec<String> =
             a.split_ascii_whitespace().map(|s| s.to_string()).collect();
-        if editor_command.len() > 0 {
+        if !editor_command.is_empty() {
             return editor_command;
         }
     }

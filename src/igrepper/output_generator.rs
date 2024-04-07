@@ -81,11 +81,11 @@ impl OutputGenerator {
     }
 
     pub fn slice(&mut self, start: u32, end: u32) -> &[Line] {
-        return &self.result[start as usize..end as usize];
+        &self.result[start as usize..end as usize]
     }
 
     /// Maps the internal dictionary state into a Vec.
-    fn map_to_vec(&mut self) -> () {
+    fn map_to_vec(&mut self) {
         let mut line_numbers: Vec<usize> = self
             .lines_with_match_ranges_dict
             .keys()
@@ -123,7 +123,7 @@ impl OutputGenerator {
 
             let line_match_ranges: Vec<MatchPosition> = self
                 .regex
-                .find_iter(&line)
+                .find_iter(line)
                 .map(|match_on_line| MatchPosition {
                     start: match_on_line.start() as u32,
                     end: match_on_line.end() as u32,
@@ -139,7 +139,7 @@ impl OutputGenerator {
                         matches: vec![MatchPosition { start: 0, end: 0 }],
                     }),
                 );
-            } else if !self.inverted && line_match_ranges.len() > 0 {
+            } else if !self.inverted && !line_match_ranges.is_empty() {
                 self.lines_with_match_ranges_dict.insert(
                     self.lines_processed as usize,
                     Line::LineWithMatches(LineWithMatches {
@@ -150,7 +150,7 @@ impl OutputGenerator {
                 let context_lines = self.get_context_lines();
                 for key in context_lines.keys() {
                     self.lines_with_match_ranges_dict
-                        .insert(key.clone(), context_lines[key].clone());
+                        .insert(*key, context_lines[key].clone());
                 }
             }
             self.lines_processed += 1;
@@ -176,7 +176,7 @@ impl OutputGenerator {
                 context_lines.insert(break_line_num, Line::BreakLine);
             }
             let unpopulated_context_line_numbers = (first_context_line_num..last_context_line_num)
-                .filter(|i| !self.lines_with_match_ranges_dict.contains_key(&i));
+                .filter(|i| !self.lines_with_match_ranges_dict.contains_key(i));
 
             for context_line_num in unpopulated_context_line_numbers {
                 context_lines.insert(
