@@ -315,7 +315,7 @@ impl State {
 
     pub fn toggle_case_sensitivity(self) -> State {
         let mut search_lines = self.search_lines.clone();
-        let mut last_search_line = search_lines.last_mut().unwrap();
+        let last_search_line = search_lines.last_mut().unwrap();
         last_search_line.case_sensitive = !last_search_line.case_sensitive;
         let regex = last_search_line
             .construct_regex()
@@ -333,7 +333,7 @@ impl State {
 
     pub fn toggle_inverted(self) -> State {
         let mut search_lines = self.search_lines.clone();
-        let mut last_search_line = search_lines.last_mut().unwrap();
+        let last_search_line = search_lines.last_mut().unwrap();
         last_search_line.inverse = !last_search_line.inverse;
         let regex = last_search_line
             .construct_regex()
@@ -428,7 +428,10 @@ mod tests {
     fn push_char_create_invalid_regex() {
         let source_lines = get_source_lines();
         let state = get_state(source_lines).push_search_char('\\');
-        assert_eq!(format!("{:?}", state.last_valid_regex()), "Regex(\"(?i)d\")");
+        assert_eq!(
+            format!("{:?}", state.last_valid_regex()),
+            "Regex(\"(?i)d\")"
+        );
     }
 
     #[test]

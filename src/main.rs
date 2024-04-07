@@ -91,11 +91,12 @@ fn main() {
     };
 
     let inotify = if matches.is_present("follow") {
-        let mut inotify = Inotify::init()
+        let inotify = Inotify::init()
             .expect("Failed to monitor file changes, error while initializing inotify instance");
 
         inotify
-            .add_watch(
+            .watches()
+            .add(
                 file_path.unwrap(),
                 WatchMask::MODIFY | WatchMask::CLOSE_WRITE,
             )
