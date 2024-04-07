@@ -1,4 +1,4 @@
-FROM rust:1.64.0-buster
+FROM rust:1.77.1-buster
 
 WORKDIR /tmp
 
