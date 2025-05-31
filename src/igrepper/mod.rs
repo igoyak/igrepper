@@ -115,18 +115,13 @@ pub fn igrepper(
         });
     }
 
-    thread::spawn(move || loop {
-        match char_requester_rx
+    thread::spawn(move || {
+        while let CharRequesterMessage::ReadyToReceiveChar = char_requester_rx
             .recv()
             .unwrap_or(CharRequesterMessage::Exit)
         {
-            CharRequesterMessage::ReadyToReceiveChar => {
-                let ch = ncurses::getch();
-                tx.send(Message::Character(ch)).unwrap();
-            }
-            CharRequesterMessage::Exit => {
-                break;
-            }
+            let ch = ncurses::getch();
+            tx.send(Message::Character(ch)).unwrap();
         }
     });
 
@@ -140,10 +135,9 @@ pub fn igrepper(
         let message = rx.recv().unwrap();
         match message {
             Message::ReloadFile => {
-                let source = source_producer.get_source().map_err(|err| {
+                let source = source_producer.get_source().inspect_err(|_| {
                     clear_screen();
                     ncurses::endwin();
-                    err
                 })?;
                 state = state.set_source_lines(source);
                 core.clear_cache();

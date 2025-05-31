@@ -30,9 +30,6 @@ pub enum Line {
     BreakLine,
 }
 
-#[derive(Debug)]
-pub enum BreakLine {} // A line separator
-
 #[derive(Debug, Clone)]
 pub struct LineWithMatches {
     pub line: String,

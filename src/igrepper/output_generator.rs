@@ -62,7 +62,7 @@ impl OutputGenerator {
     }
 
     pub fn full_vec(&mut self) -> &Vec<Line> {
-        self.request(u32::max_value());
+        self.request(u32::MAX);
         &self.result
     }
 
