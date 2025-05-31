@@ -1,7 +1,7 @@
 # igrepper - The interactive grepper
 
-Filter and explore text with instant feedback. The regex is re-evaluated at every keypress. Also useful for quickly
-developing and testing regular expressions.
+Filter text with regex, re-evaluated at every keypress, minimizing thec feedback loop. 
+
 
 ![](docs/basic_usage.gif)
 
