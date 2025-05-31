@@ -12,7 +12,7 @@ ncurses = "5.101.0"
 libc = "0.2.93"
 clap = "4.5.39"
 regex = "1.11.1"
-inotify = "0.10"
+inotify = "0.11.0"
 anyhow = "1.0.81"
 
 [dev-dependencies]
