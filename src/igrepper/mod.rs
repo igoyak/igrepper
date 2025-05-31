@@ -1,7 +1,6 @@
 use ncurses::{
-    curs_set, endwin, getch, getmaxyx, init_pair, initscr, keypad, noecho, raw, refresh,
-    start_color, stdscr, CURSOR_VISIBILITY, KEY_BACKSPACE, KEY_DOWN, KEY_ENTER, KEY_LEFT,
-    KEY_NPAGE, KEY_PPAGE, KEY_RESIZE, KEY_RIGHT, KEY_UP,
+    CURSOR_VISIBILITY, KEY_BACKSPACE, KEY_DOWN, KEY_ENTER, KEY_LEFT, KEY_NPAGE, KEY_PPAGE,
+    KEY_RESIZE, KEY_RIGHT, KEY_UP,
 };
 use std::cmp;
 use std::io::Write;
@@ -43,7 +42,7 @@ pub enum CharRequesterMessage {
 fn get_screen_size() -> (u32, u32) {
     let mut y: i32 = 0;
     let mut x: i32 = 0;
-    getmaxyx(stdscr(), &mut y, &mut x);
+    ncurses::getmaxyx(ncurses::stdscr(), &mut y, &mut x);
     (y as u32, x as u32)
 }
 
@@ -57,24 +56,24 @@ pub fn igrepper(
     let source = source_producer.get_source()?;
 
     // Setup ncurses
-    initscr();
-    raw();
-    keypad(stdscr(), true);
-    noecho();
-    curs_set(CURSOR_VISIBILITY::CURSOR_INVISIBLE);
+    ncurses::initscr();
+    ncurses::raw();
+    ncurses::keypad(ncurses::stdscr(), true);
+    ncurses::noecho();
+    ncurses::curs_set(CURSOR_VISIBILITY::CURSOR_INVISIBLE);
 
-    start_color();
-    init_pair(COLOR_PAIR_DEFAULT, 231i16, 232i16);
-    init_pair(COLOR_PAIR_RED, 1i16, 232i16);
-    init_pair(COLOR_PAIR_ACTIVE_INPUT, 1i16, 7i16);
-    init_pair(COLOR_PAIR_INACTIVE_INPUT, 248i16, 232i16);
-    init_pair(COLOR_PAIR_BORDER, 8i16, 232i16);
+    ncurses::start_color();
+    ncurses::init_pair(COLOR_PAIR_DEFAULT, 231i16, 232i16);
+    ncurses::init_pair(COLOR_PAIR_RED, 1i16, 232i16);
+    ncurses::init_pair(COLOR_PAIR_ACTIVE_INPUT, 1i16, 7i16);
+    ncurses::init_pair(COLOR_PAIR_INACTIVE_INPUT, 248i16, 232i16);
+    ncurses::init_pair(COLOR_PAIR_BORDER, 8i16, 232i16);
 
     for (i, c) in MATCH_COLORS.iter().enumerate() {
-        init_pair(i as i16 + 1, *c, 232i16);
+        ncurses::init_pair(i as i16 + 1, *c, 232i16);
     }
 
-    refresh();
+    ncurses::refresh();
 
     let (max_y, max_x) = get_screen_size();
 
@@ -122,7 +121,7 @@ pub fn igrepper(
             .unwrap_or(CharRequesterMessage::Exit)
         {
             CharRequesterMessage::ReadyToReceiveChar => {
-                let ch = getch();
+                let ch = ncurses::getch();
                 tx.send(Message::Character(ch)).unwrap();
             }
             CharRequesterMessage::Exit => {
@@ -134,7 +133,7 @@ pub fn igrepper(
     loop {
         let render_state = core.get_render_state(&state);
         rendering::render(render_state);
-        refresh();
+        ncurses::refresh();
         char_requester_tx
             .send(CharRequesterMessage::ReadyToReceiveChar)
             .unwrap();
@@ -143,7 +142,7 @@ pub fn igrepper(
             Message::ReloadFile => {
                 let source = source_producer.get_source().map_err(|err| {
                     clear_screen();
-                    endwin();
+                    ncurses::endwin();
                     err
                 })?;
                 state = state.set_source_lines(source);
@@ -170,7 +169,7 @@ pub fn igrepper(
 
                 3 => {
                     clear_screen();
-                    endwin();
+                    ncurses::endwin();
                     break;
                 }
                 KEY_PPAGE => {
@@ -200,7 +199,7 @@ pub fn igrepper(
                 CTRL_L | KEY_RESIZE => {
                     let (max_y, max_x) = get_screen_size();
                     state = state.set_max_yx(max_y, max_x);
-                    refresh();
+                    ncurses::refresh();
                 }
                 CTRL_R => {
                     state = state.modify_context(-1);
@@ -225,7 +224,7 @@ pub fn igrepper(
                         continue;
                     }
                     clear_screen();
-                    endwin();
+                    ncurses::endwin();
                     copy_grep_to_clipboard(&state.search_lines());
                     break;
                 }
@@ -234,7 +233,7 @@ pub fn igrepper(
                         continue;
                     }
                     clear_screen();
-                    endwin();
+                    ncurses::endwin();
                     copy_full_to_clipboard_from_string(&core.get_full_output_string(&state));
                     break;
                 }
@@ -243,7 +242,7 @@ pub fn igrepper(
                         continue;
                     }
                     clear_screen();
-                    endwin();
+                    ncurses::endwin();
                     pipe_to_external_editor(external_editor, &core.get_full_output_string(&state));
                     break;
                 }
