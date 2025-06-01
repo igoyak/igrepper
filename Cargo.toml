@@ -5,6 +5,8 @@ authors = ["Gustav Larsson <gustav.e.larsson@gmail.com>"]
 edition = "2018"
 license = "MIT"
 description = "The interactive grepper"
+homepage = "https://igrepper.org"
+repository = "https://github.com/igoyak/igrepper"
 
 
 [dependencies]
