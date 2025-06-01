@@ -1,6 +1,6 @@
 # igrepper - The interactive grepper
 
-Filter text with regex, re-evaluated at every keypress, minimizing thec feedback loop. 
+Filter text with regex, re-evaluated at every keypress, minimizing the feedback loop. 
 
 
 ![](docs/basic_usage.gif)
