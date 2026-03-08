@@ -7,10 +7,8 @@ use libc::close;
 use libc::open;
 use std::env;
 
-use crate::igrepper::igrepper;
-use file_reading::{SourceInput, SourceProducer};
-mod file_reading;
-mod igrepper;
+use igrepper::file_reading::{self, SourceInput, SourceProducer};
+use igrepper::igrepper::igrepper;
 
 const PARAMETER_ERROR: &str = "Data can only be passed by STDIN if no file parameter is specified";
 const DEFAULT_EDITOR_COMMAND: [&str; 3] = ["vim", "-R", "-"];

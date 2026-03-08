@@ -111,6 +111,10 @@ Tested on Ubuntu 20.04
 
 Ubuntu: `apt-get install libncurses-dev`
 
+## Benchmark
+
+`cargo bench`
+
 ## Build release version
 
 Either: 

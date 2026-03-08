@@ -11,13 +11,13 @@ use std::{char, thread};
 extern crate ncurses;
 extern crate regex;
 
-mod constants;
-mod core;
+pub mod constants;
+pub mod core;
 pub mod output_generator;
 pub mod rendering;
 pub mod state;
-mod trimming;
-mod types;
+pub mod trimming;
+pub mod types;
 
 use crate::file_reading::SourceProducer;
 use crate::igrepper::constants::*;
