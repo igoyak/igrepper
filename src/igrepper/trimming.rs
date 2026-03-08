@@ -9,6 +9,7 @@ use std::collections::HashMap;
 
 /// Returns a state that can be rendered to the screen
 ///
+/// ```text
 ///          <──────────── content_width ────────────>
 ///         <──────────────── max_x ──────────────────>
 ///       ^ ┌─────────────────────────────────────────┐
@@ -22,7 +23,7 @@ use std::collections::HashMap;
 ///       │ │░░░░░░░░░░░░░                            │
 ///       │ └─────────────────────────────────────────┘
 ///       v ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓                        <- status line
-///
+/// ```
 pub fn produce_render_state(
     regex_valid: bool,
     max_y: u32,
