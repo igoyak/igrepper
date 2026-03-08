@@ -1,17 +1,19 @@
-use crate::igrepper::output_generator::{Len, OutputGenerator};
+use crate::igrepper::output_generator::{Len, OutputGenerator, SourceLines};
 use crate::igrepper::state::{SearchLine, State};
 use crate::igrepper::trimming::produce_render_state;
 use crate::igrepper::types::RenderState;
 use std::collections::HashMap;
-use std::sync::Arc;
 
 #[derive(Debug)]
 struct CacheEntry {
     pub search_line: String,
     pub output_generator: OutputGenerator,
+    /// If this generator's source is buffered from a parent, stores the
+    /// parent's cache key so Core can drain matching lines before request().
+    pub parent_key: Option<CacheKey>,
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone)]
 struct CacheKey {
     search_lines: Vec<SearchLine>,
     context: u32,
@@ -45,25 +47,47 @@ impl Core {
     }
 
     pub fn get_full_output_string(&mut self, state: &State) -> String {
-        self.get_output_generator(state).full_string()
+        let key = get_cache_key(state);
+        self.populate_cache(state);
+        self.drain_and_request_full(&key);
+        self.cache
+            .get_mut(&key)
+            .unwrap()
+            .output_generator
+            .full_string()
     }
 
     pub fn widest_line_seen_so_far(&mut self, state: &State) -> u32 {
-        self.get_output_generator(state).widest_line_seen_so_far()
+        let key = get_cache_key(state);
+        self.populate_cache(state);
+        self.cache
+            .get(&key)
+            .unwrap()
+            .output_generator
+            .widest_line_seen_so_far()
     }
 
     pub fn is_output_length_at_least(&mut self, state: &State, length: u32) -> u32 {
-        let output_generator = self.get_output_generator(state);
+        let key = get_cache_key(state);
+        self.populate_cache(state);
+        self.drain_parent_into_child(&key, length);
+        let output_generator = &mut self.cache.get_mut(&key).unwrap().output_generator;
         output_generator.request(length);
         output_generator.len_simple()
     }
 
     pub fn get_current_output_length(&mut self, state: &State) -> Len {
-        self.get_output_generator(state).len()
+        let key = get_cache_key(state);
+        self.populate_cache(state);
+        self.cache.get(&key).unwrap().output_generator.len()
     }
 
     pub fn get_render_state(&mut self, state: &State) -> RenderState {
-        let output_generator = self.get_output_generator(state);
+        let key = get_cache_key(state);
+        self.populate_cache(state);
+        let lines_needed = state.pager_y() + state.max_y() + 10;
+        self.drain_parent_into_child(&key, lines_needed);
+        let output_generator = &mut self.cache.get_mut(&key).unwrap().output_generator;
         produce_render_state(
             state.regex_valid(),
             state.max_y(),
@@ -76,13 +100,74 @@ impl Core {
         )
     }
 
-    fn get_output_generator(&mut self, state: &State) -> &mut OutputGenerator {
-        self.populate_cache(state);
-        &mut self
-            .cache
-            .get_mut(&get_cache_key(state))
-            .unwrap()
-            .output_generator
+    /// Drains matching lines from a parent OutputGenerator into the child's
+    /// buffered source. Requests enough lines from the parent to cover the
+    /// child's needs, then copies new matching lines into the child's buffer.
+    fn drain_parent_into_child(&mut self, child_key: &CacheKey, child_requested: u32) {
+        let entry = self.cache.get(child_key).unwrap();
+        let parent_key = match &entry.parent_key {
+            Some(k) => k.clone(),
+            None => return,
+        };
+
+        let child_needs = {
+            let child = &entry.output_generator;
+            let request_chunk_size: u32 = 1000;
+            let end = child_requested
+                .saturating_sub(child_requested % request_chunk_size)
+                .saturating_add(request_chunk_size);
+            end.saturating_add(child.context()).saturating_add(1) as usize
+        };
+        let already_buffered = entry.output_generator.source_buffered_len();
+
+        if already_buffered >= child_needs {
+            return;
+        }
+
+        // First, recursively ensure the parent is also drained from its parent.
+        self.drain_parent_into_child(&parent_key, child_needs as u32);
+
+        let parent = &mut self.cache.get_mut(&parent_key).unwrap().output_generator;
+        parent.request(child_needs as u32);
+        let parent_matching_count = parent.matching_line_count();
+        let parent_exhausted = parent.is_fully_processed();
+        let new_lines: Vec<String> = if already_buffered < parent_matching_count {
+            parent.matching_lines()[already_buffered..parent_matching_count].to_vec()
+        } else {
+            vec![]
+        };
+
+        let child = &mut self.cache.get_mut(child_key).unwrap().output_generator;
+        child
+            .source_lines_mut()
+            .extend_buffer(&new_lines, parent_exhausted);
+    }
+
+    /// Fully drains parent into child (used for full_string/full_vec).
+    fn drain_and_request_full(&mut self, child_key: &CacheKey) {
+        let entry = self.cache.get(child_key).unwrap();
+        if entry.parent_key.is_none() {
+            return;
+        }
+        let parent_key = entry.parent_key.clone().unwrap();
+        let already_buffered = entry.output_generator.source_buffered_len();
+
+        self.drain_and_request_full(&parent_key);
+
+        let parent = &mut self.cache.get_mut(&parent_key).unwrap().output_generator;
+        parent.request(u32::MAX);
+        let parent_matching_count = parent.matching_line_count();
+        let parent_exhausted = parent.is_fully_processed();
+        let new_lines: Vec<String> = if already_buffered < parent_matching_count {
+            parent.matching_lines()[already_buffered..parent_matching_count].to_vec()
+        } else {
+            vec![]
+        };
+
+        let child = &mut self.cache.get_mut(child_key).unwrap().output_generator;
+        child
+            .source_lines_mut()
+            .extend_buffer(&new_lines, parent_exhausted);
     }
 
     fn populate_cache(&mut self, state: &State) {
@@ -105,20 +190,14 @@ impl Core {
             cache_ok = false;
         }
         if !cache_ok {
-            let source_lines: Arc<Vec<String>> = if first_line {
-                state.source_lines_arc()
+            let (source_lines, parent_key) = if first_line {
+                (SourceLines::Raw(state.source_lines_arc()), None)
             } else {
                 let reverted_key = get_cache_key(&state.clone().revert_partial_match());
-                Arc::new(
-                    self.cache
-                        .get_mut(&reverted_key)
-                        .unwrap()
-                        .output_generator
-                        .full_string_vec(),
-                )
+                (SourceLines::new_buffered(), Some(reverted_key))
             };
             let output_generator = OutputGenerator::new(
-                source_lines.clone(),
+                source_lines,
                 state.last_valid_regex(),
                 state.last_search_line_empty(),
                 state.current_context(),
@@ -129,6 +208,7 @@ impl Core {
                 CacheEntry {
                     search_line: s,
                     output_generator,
+                    parent_key,
                 },
             );
         }

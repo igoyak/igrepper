@@ -1,8 +1,8 @@
+pub(crate) use crate::igrepper::source_lines::SourceLines;
 use crate::igrepper::types::{Line, LineWithMatches, MatchPosition};
 use regex::Regex;
 use std::cmp;
 use std::collections::HashMap;
-use std::sync::Arc;
 
 #[derive(Debug)]
 pub enum Len {
@@ -14,20 +14,23 @@ pub enum Len {
 /// It generates the output lazily.
 #[derive(Debug)]
 pub struct OutputGenerator {
-    source_lines: Arc<Vec<String>>,
+    source_lines: SourceLines,
     regex: Regex,
     search_line_empty: bool,
     context: u32,
     inverted: bool,
     result: Vec<Line>,
+    /// Tracks matching lines separately so a parent's output can be drained
+    /// into a child's buffered source by Core.
+    matching_lines: Vec<String>,
     lines_processed: u32,
     widest_line_seen: u32,
     lines_with_match_ranges_dict: HashMap<usize, Line>,
 }
 
 impl OutputGenerator {
-    pub fn new(
-        source_lines: Arc<Vec<String>>,
+    pub(crate) fn new(
+        source_lines: SourceLines,
         regex: Regex,
         search_line_empty: bool,
         context: u32,
@@ -43,6 +46,7 @@ impl OutputGenerator {
             lines_processed: 0,
             widest_line_seen: 0,
             result: vec![],
+            matching_lines: vec![],
         }
     }
 
@@ -55,7 +59,7 @@ impl OutputGenerator {
     /// - The length of the output if fully processed
     /// - The length of the currently processed output otherwise
     pub fn len(&self) -> Len {
-        if self.lines_processed == self.source_lines.len() as u32 {
+        if self.source_lines.is_exhausted(self.lines_processed) {
             Len::Is(self.result.len() as u32)
         } else {
             Len::AtLeast(self.result.len() as u32)
@@ -108,6 +112,30 @@ impl OutputGenerator {
         self.widest_line_seen
     }
 
+    pub fn is_fully_processed(&self) -> bool {
+        self.source_lines.is_exhausted(self.lines_processed)
+    }
+
+    pub fn matching_line_count(&self) -> usize {
+        self.matching_lines.len()
+    }
+
+    pub fn matching_lines(&self) -> &[String] {
+        &self.matching_lines
+    }
+
+    pub(crate) fn source_lines_mut(&mut self) -> &mut SourceLines {
+        &mut self.source_lines
+    }
+
+    pub(crate) fn source_buffered_len(&self) -> usize {
+        self.source_lines.buffered_len()
+    }
+
+    pub(crate) fn context(&self) -> u32 {
+        self.context
+    }
+
     /// Requests a number of output lines from the generator.
     /// Returns the number of lines calculated, either the same as requested, or less
     /// in case the end of the output was reached.
@@ -117,14 +145,17 @@ impl OutputGenerator {
             .saturating_sub(requested % request_chunk_size)
             .saturating_add(request_chunk_size);
         while self.lines_with_match_ranges_dict.len() < end as usize
-            && self.lines_processed < self.source_lines.len() as u32
+            && !self.source_lines.is_exhausted(self.lines_processed)
         {
-            let line = &self.source_lines[self.lines_processed as usize];
+            let line = match self.source_lines.get(self.lines_processed as usize) {
+                Some(l) => l,
+                None => break,
+            };
             self.widest_line_seen = cmp::max(self.widest_line_seen, line.len() as u32);
 
             let line_match_ranges: Vec<MatchPosition> = self
                 .regex
-                .find_iter(line)
+                .find_iter(&line)
                 .map(|match_on_line| MatchPosition {
                     start: match_on_line.start() as u32,
                     end: match_on_line.end() as u32,
@@ -132,19 +163,20 @@ impl OutputGenerator {
                 .collect();
 
             if self.inverted && (self.search_line_empty || line_match_ranges.is_empty()) {
-                // Insert a zero-length match for the line
+                self.matching_lines.push(line.clone());
                 self.lines_with_match_ranges_dict.insert(
                     self.lines_processed as usize,
                     Line::LineWithMatches(LineWithMatches {
-                        line: String::from(line),
+                        line: line.clone(),
                         matches: vec![MatchPosition { start: 0, end: 0 }],
                     }),
                 );
             } else if !self.inverted && !line_match_ranges.is_empty() {
+                self.matching_lines.push(line.clone());
                 self.lines_with_match_ranges_dict.insert(
                     self.lines_processed as usize,
                     Line::LineWithMatches(LineWithMatches {
-                        line: String::from(line),
+                        line: line.clone(),
                         matches: line_match_ranges,
                     }),
                 );
@@ -164,8 +196,9 @@ impl OutputGenerator {
         let mut context_lines: HashMap<usize, Line> = HashMap::new();
         if self.context > 0 {
             let first_context_line_num = self.lines_processed.saturating_sub(self.context) as usize;
+            let source_len = self.source_lines.available_count(self.lines_processed) as usize;
             let last_context_line_num = cmp::min(
-                self.source_lines.len(),
+                source_len,
                 self.lines_processed as usize + self.context as usize + 1,
             );
             // Add break-line
@@ -180,13 +213,15 @@ impl OutputGenerator {
                 .filter(|i| !self.lines_with_match_ranges_dict.contains_key(i));
 
             for context_line_num in unpopulated_context_line_numbers {
-                context_lines.insert(
-                    context_line_num,
-                    Line::LineWithMatches(LineWithMatches {
-                        line: String::from(&self.source_lines[context_line_num]),
-                        matches: vec![],
-                    }),
-                );
+                if let Some(ctx_line) = self.source_lines.get(context_line_num) {
+                    context_lines.insert(
+                        context_line_num,
+                        Line::LineWithMatches(LineWithMatches {
+                            line: ctx_line,
+                            matches: vec![],
+                        }),
+                    );
+                }
             }
         }
         context_lines

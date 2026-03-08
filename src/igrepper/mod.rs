@@ -15,6 +15,7 @@ pub mod constants;
 pub mod core;
 pub mod output_generator;
 pub mod rendering;
+mod source_lines;
 pub mod state;
 pub mod trimming;
 pub mod types;
