@@ -3,6 +3,7 @@ use crate::igrepper::state::{SearchLine, State};
 use crate::igrepper::trimming::produce_render_state;
 use crate::igrepper::types::RenderState;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(Debug)]
 struct CacheEntry {
@@ -104,14 +105,17 @@ impl Core {
             cache_ok = false;
         }
         if !cache_ok {
-            let source_lines: Vec<String> = if first_line {
-                state.source_lines().to_vec()
+            let source_lines: Arc<Vec<String>> = if first_line {
+                state.source_lines_arc()
             } else {
-                self.cache
-                    .get_mut(&get_cache_key(&state.clone().revert_partial_match()))
-                    .unwrap()
-                    .output_generator
-                    .full_string_vec()
+                let reverted_key = get_cache_key(&state.clone().revert_partial_match());
+                Arc::new(
+                    self.cache
+                        .get_mut(&reverted_key)
+                        .unwrap()
+                        .output_generator
+                        .full_string_vec(),
+                )
             };
             let output_generator = OutputGenerator::new(
                 source_lines.clone(),

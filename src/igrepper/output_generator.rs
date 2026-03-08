@@ -2,6 +2,7 @@ use crate::igrepper::types::{Line, LineWithMatches, MatchPosition};
 use regex::Regex;
 use std::cmp;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub enum Len {
@@ -13,7 +14,7 @@ pub enum Len {
 /// It generates the output lazily.
 #[derive(Debug)]
 pub struct OutputGenerator {
-    source_lines: Vec<String>,
+    source_lines: Arc<Vec<String>>,
     regex: Regex,
     search_line_empty: bool,
     context: u32,
@@ -26,7 +27,7 @@ pub struct OutputGenerator {
 
 impl OutputGenerator {
     pub fn new(
-        source_lines: Vec<String>,
+        source_lines: Arc<Vec<String>>,
         regex: Regex,
         search_line_empty: bool,
         context: u32,

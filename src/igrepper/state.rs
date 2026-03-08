@@ -2,10 +2,11 @@ use super::regex::{Error, Regex};
 use crate::igrepper::constants::CASE_INSENSITIVE_PREFIX;
 use crate::igrepper::trimming::{content_width, pager_content_height, pager_window_height};
 use std::cmp;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct State {
-    source_lines: Vec<String>,
+    source_lines: Arc<Vec<String>>,
     search_lines: Vec<SearchLine>,
     last_valid_regex: Regex,
     pager_x: u32,
@@ -76,6 +77,7 @@ impl State {
             .unwrap()
             .construct_regex()
             .unwrap_or(default_regex());
+        let source_lines = Arc::new(source_lines);
         State::new_with_regex(
             source_lines,
             search_lines,
@@ -88,7 +90,7 @@ impl State {
     }
 
     fn new_with_regex(
-        source_lines: Vec<String>,
+        source_lines: Arc<Vec<String>>,
         search_lines: Vec<SearchLine>,
         last_valid_regex: Regex,
         pager_x: u32,
@@ -134,9 +136,11 @@ impl State {
             .map(|s| s.line)
             .collect::<Vec<String>>()
     }
-
-    pub fn source_lines(&self) -> Vec<String> {
-        self.source_lines.clone()
+    pub fn source_lines(&self) -> &[String] {
+        &self.source_lines
+    }
+    pub fn source_lines_arc(&self) -> Arc<Vec<String>> {
+        Arc::clone(&self.source_lines)
     }
 
     pub fn regex_valid(&self) -> bool {
@@ -351,7 +355,7 @@ impl State {
 
     pub fn set_source_lines(self, source_lines: Vec<String>) -> State {
         State::new_with_regex(
-            source_lines,
+            Arc::new(source_lines),
             self.search_lines,
             self.last_valid_regex,
             self.pager_x,
