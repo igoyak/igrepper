@@ -15,7 +15,7 @@ const DEFAULT_EDITOR_COMMAND: [&str; 3] = ["vim", "-R", "-"];
 
 fn main() {
     let matches = Command::new("igrepper")
-        .version("1.3.6")
+        .version("1.3.7")
         .about("The interactive grepper")
         .arg(clap::arg!(-e --regex <REGEX> "Regular expression to preload"))
         .arg(clap::arg!(-c --context <CONTEXT> "Print CONTEXT num of output context"))
